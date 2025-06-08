@@ -33,3 +33,8 @@ The following commands are currently supported:
 | /garage    | <optional: klavia_id> | Displays some information about the users garage. |
 | /stats     | <optional: klavia_id> | Displays some statistics of the given user. |
 | /quests    | <optional: klavia_id> | Displays the users current quests. |
+
+## Examples:
+![verification](readme/verification.png)
+![garage](readme/garage.png)
+![quests](readme/quests.png)
