@@ -6,12 +6,12 @@ Available commands, example images and short documentation can be found below.
 The following commands are currently supported:  
 | Command            | Parameters            | Description |
 |--------------------|-----------------------| ------------|
-| /setup             | <welcome_channel>     | Runs setup tasks, creates roles and sets the welcome channel. |
+| /setup             | <welcome_channel> <message_author> <message_icon_url> | Should be used immediately after adding bot to server. Runs setup tasks, creates roles, sets the welcome channel, message author and icon. |
 | /find_racer        | <klavia_name>         | Searches for Klavia account and returns id, display name and username. |
 | /verify            | <klavia_name>         | Verifies account, links it to the Klavia account and updates their server profile. |
 | /force_verify      | <member> <klavia_id>  | Can be used by admins to verify other users or themselves immediately. |
 | /unverify          |                       | Unverifies the user who's using the command. |
-| /force_unverify    | <member> <klavia_id   | Can be used by admins to unverify other users or themselves immediately. |
+| /force_unverify    | <member> <klavia_id>  | Can be used by admins to unverify other users or themselves immediately. |
 | /sync              |                       | Synchronizes the server profile and Klavia account. Updates server profile. |
 | /garage            | [klavia_name]         | Displays some information about the users garage. |
 | /stats             | [klavia_name]         | Displays some statistics of the given user. |
@@ -21,8 +21,8 @@ The following commands are currently supported:
 [ ] = Optional Parameter  
 
 ## Currently working on:
-### Small scale persistent storage system.  
-Initially I wanted to store Klavia IDs in the discord user name, but I've decided to create a simple json file for storing user and server configuration data. This will also allow one instance of the bot to be added to multiple different servers.
+### More commands  
+I am planning to add more commands for team stats, comparisons, etc. Also your team will obviously be linked to your profile through your linked Klavia account.
 
 ## Development Environment
 1. Python 3.12  
@@ -41,10 +41,10 @@ Initially I wanted to store Klavia IDs in the discord user name, but I've decide
    - Edit user profiles.
    - Send messages.
      
-   These roles will be automatically created, once you run the setup command:
-   - HKBot_unverified
-   - HKBot_verification_pending
-   - HKBot_verified
+   To avoid conflict with other bots, all roles have a prefix. These roles will be automatically created, once you run the setup command:
+   - HK Unverified
+   - HK Verification Pending
+   - HK Verified
 
 ## Examples:
 ![verification](readme/verification.png)
