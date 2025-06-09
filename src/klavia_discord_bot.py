@@ -16,7 +16,7 @@ from dotenv import dotenv_values
 from crawler import Crawler, Garage, Car, UserStats, UserQuests
 from dscrd_bot.embeds import DefaultEmbed, OkayEmbed, ErrorType, ErrorEmbed
 from dscrd_bot.roles import HeBotRole
-from src.dscrd_bot.persistent_data import Persistence, Server, Channel, User
+from dscrd_bot.persistent_data import Persistence, Server, Channel, User
 
 BlankChar: Final[str] = "\u200b"
 BlankLine: Final[str] = f"{BlankChar}\n"
