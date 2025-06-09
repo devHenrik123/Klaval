@@ -3,7 +3,6 @@ from asyncio import sleep
 from math import floor
 from pathlib import Path
 from random import choice
-from re import search
 from time import time
 from typing import Any, Final
 
@@ -37,7 +36,7 @@ def is_verified(discord_user: Member) -> bool:
 
 def get_klava_id(discord_user: Member) -> str:
     for verified_user in Persistence.get_server(str(discord_user.guild.id)).verified_users:
-        if verified_user.id == discord_user:
+        if verified_user.id == str(discord_user.id):
             return verified_user.klavia_id
     raise Exception("Cannot find Klavia ID")
 
@@ -248,11 +247,11 @@ def main() -> None:
         response.add_field(
             name="",
             value=(
-                f"{stat_data.overview.lifetime_races} races\n"
-                f"{stat_data.overview.longest_session} races\n"
-                f"{stat_data.overview.top_wpm} wpm\n"
-                f"{stat_data.overview.current_wpm} wpm\n"
-                f"{stat_data.overview.perfect_races} races\n"
+                f"{stat_data.overview.lifetime_races}\n"
+                f"{stat_data.overview.longest_session}\n"
+                f"{stat_data.overview.top_wpm}\n"
+                f"{stat_data.overview.current_wpm}\n"
+                f"{stat_data.overview.perfect_races}\n"
                 f"{stat_data.overview.current_acc}%\n"
             ),
             inline=True

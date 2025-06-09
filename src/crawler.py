@@ -1,6 +1,5 @@
 from dataclasses import dataclass
-from re import search
-from typing import Final, cast
+from typing import Final
 
 from bs4 import BeautifulSoup, ResultSet
 from bs4.element import Tag
@@ -72,8 +71,8 @@ class Garage:
 class Crawler:
     KlaviaUrl: Final[str] = "https://klavia.io"
     SignInUrl: Final[str] = KlaviaUrl + "/racers/sign_in"
-    GarageUrl: Final[str] = KlaviaUrl + "/garages/{user_id}"
     RacerUrl: Final[str] = KlaviaUrl + "/racers/{user_id}"
+    GarageUrl: Final[str] = RacerUrl + "/garage"
     StatsUrl: Final[str] = RacerUrl + "/stats"
     QuestsUrl: Final[str] = RacerUrl + "/quests"
     LeaderboardsUrl: Final[str] = KlaviaUrl + "/leaderboards"
@@ -87,9 +86,10 @@ class Crawler:
     def get_quests(self, user_id: str) -> UserQuests:
         response: Response = self._session.get(Crawler.QuestsUrl.format(user_id=user_id))
         soup: BeautifulSoup = BeautifulSoup(response.text, "html.parser")
-        username: str = search(r"\n(.*?)'s Quests\n", cast(Tag, soup.find("h3")).text).group(1)
+        username: str = soup.find("h3").get_text(strip=True)
 
-        quest_names: list[str] = [q.text for q in soup.find_all("a", attrs={"data-turbo-frame": "modal"})]
+        quest_names: list[str] = [q.text for q in soup.find_all("a", attrs={"data-turbo-frame": "modal"}) if len]
+        quest_names[0] = soup.find("h5").get_text(strip=True)
         quest_progs: list[int] = [
             int(p.get("data-progress-percentage-value"))
             for p in soup.find_all("div", attrs={"data-controller": "progress"})
@@ -110,11 +110,42 @@ class Crawler:
         )
 
     def get_stats(self, user_id: str) -> UserStats:
-        response: Response = self._session.get(Crawler.StatsUrl.format(user_id=user_id))
+        response: Response = self._session.get(Crawler.RacerUrl.format(user_id=user_id))
         soup: BeautifulSoup = BeautifulSoup(response.text, "html.parser")
-        username: str = search(r"\n(.*?)'s Stats\n", cast(Tag, soup.find("h3")).text).group(1)
+        username: str = soup.find("h3").get_text(strip=True)
 
-        if "This racer has not been ranked yet." in response.text:
+        try:
+            main_stats: list[Tag] = soup.find_all("strong")
+            lifetime_races: int = int(main_stats[0].get_text(strip=True).split(" ")[0].replace(",", ""))
+            top_wpm: float = float(main_stats[1].get_text(strip=True).split(" ")[0])
+            perfect_acc: int = int(main_stats[2].get_text(strip=True))
+
+            def get_minor_stat(s: BeautifulSoup, label: str) -> str:
+                for td in soup.find_all("td"):
+                    if td.get_text(strip=True).startswith(label):
+                        value_td = td.find_next_sibling("td")
+                        if value_td:
+                            return value_td.get_text(strip=True)
+                return "-1"
+
+            longest_session: int = int(get_minor_stat(soup, "Longest Session").split()[0].replace(",", ""))
+            current_wpm: float = float(get_minor_stat(soup, "Current Speed").split()[0])
+            current_acc: float = float(get_minor_stat(soup, "Current Accuracy").strip("%"))
+
+            return UserStats(
+                user_id=user_id,
+                username=username,
+                overview=UserStatOverview(
+                    lifetime_races=lifetime_races,
+                    longest_session=longest_session,
+                    top_wpm=top_wpm,
+                    current_wpm=current_wpm,
+                    perfect_races=perfect_acc,
+                    current_acc=current_acc
+                )
+            )
+        except IndexError:
+            # User might not have stats, yet.
             return UserStats(
                 user_id=user_id,
                 username=username,
@@ -128,35 +159,10 @@ class Crawler:
                 )
             )
 
-        main_stats: list[str] = [h.text.replace(",", "").strip("\n") for h in soup.find_all("h1")]
-        longest_session: int = -1
-        current_wpm: float = -1
-        current_acc: float = - 1
-        for p in soup.find_all("p"):
-            if "Longest Session" in p.text:
-                longest_session = int(search(r"Longest Session\n\n(.*?) races", p.text).group(1))
-            elif "Current Speed (last 20 races)" in p.text:
-                current_wpm = float(search(r"Current Speed \(last 20 races\)\n\n(.*?) WPM", p.text).group(1))
-            elif "Current Accuracy (last 20 races)" in p.text:
-                current_acc = float(search(r"Current Accuracy \(last 20 races\)\n\n(.*?)%", p.text).group(1))
-
-        return UserStats(
-            user_id=user_id,
-            username=username,
-            overview=UserStatOverview(
-                lifetime_races=int(main_stats[0]),
-                longest_session=longest_session,
-                top_wpm=float(main_stats[1]),
-                current_wpm=current_wpm,
-                perfect_races=int(main_stats[2]),
-                current_acc=current_acc
-            )
-        )
-
     def get_garage(self, user_id: str) -> Garage:
         response: Response = self._session.get(Crawler.GarageUrl.format(user_id=user_id))
         soup: BeautifulSoup = BeautifulSoup(response.text, "html.parser")
-        username: str = search(r"\n(.*?)'s Garage\n", cast(Tag, soup.find("h3")).text).group(1)
+        username: str = soup.find("h3").get_text(strip=True)
         cars: list[Car] = []
         for car_tag in soup.find_all("a", attrs={"data-turbo-frame": "selected_car"}):
             name: str = car_tag.get("title").split("|")[0].strip()
@@ -249,5 +255,13 @@ class Crawler:
 
 
 if __name__ == '__main__':
-    """crawler: Crawler = Crawler("example@mail.com", "example")
-    crawler.get_garage("63673")"""
+    """from dotenv import dotenv_values
+    from pathlib import Path
+    RootDir = Path(__file__).parent.parent.resolve()
+    EnvVars: Final[dict[str, str]] = dotenv_values(RootDir / ".env")
+    crawler: Crawler = Crawler(EnvVars["klavia_username_or_mail"], EnvVars["klavia_password"])
+    user = "62812"
+    # crawler.get_garage(user)
+    # crawler.get_stats(user)
+    # crawler.get_quests(user)
+    crawler.get_cars()"""
