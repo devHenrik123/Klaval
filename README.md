@@ -1,4 +1,4 @@
-# HenriksKlaviaBot
+# Klaval - A Klavia bot for Discord
 I got bored, so I decided to write a Discord bot for Klavia.  
 Available commands, example images and short documentation can be found below.
 
