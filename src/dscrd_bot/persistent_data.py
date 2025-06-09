@@ -41,6 +41,8 @@ class Server:
     id: str
     verified_users: list[User]
     welcome_channel: Channel | None
+    embed_author: str
+    embed_icon_url: str
 
 
 @dataclass
@@ -80,7 +82,9 @@ class Persistence(ABC):
                         ] if "verified_users" in server[1] else [],
                         welcome_channel=Channel(
                             id=server[1]["welcome_channel"]
-                        ) if "welcome_channel" in server[1] else None
+                        ) if "welcome_channel" in server[1] else None,
+                        embed_author=server[1]["embed_author"],
+                        embed_icon_url=server[1]["embed_icon_url"]
                     ) for server in per["servers"].items()
                 ]
             )
@@ -98,7 +102,9 @@ class Persistence(ABC):
             output = Server(
                 id=server_id,
                 verified_users=[],
-                welcome_channel=None
+                welcome_channel=None,
+                embed_author="",
+                embed_icon_url=""
             )
             Persistence.__Instance.servers.append(output)
             Persistence.write()
@@ -108,9 +114,6 @@ class Persistence(ABC):
     def write() -> None:
         with Persistence.FileLock:
             with open(Persistence.PersistenceFile, "w", encoding=Persistence.Encoding) as persistence:
-                """persistence.seek(0)
-                persistence.truncate()"""
-
                 if Persistence.__Instance is None:
                     dump(
                         {
@@ -132,7 +135,9 @@ class Persistence(ABC):
                                         }
                                         for user in server.verified_users
                                     },
-                                    "welcome_channel": server.welcome_channel.id if server.welcome_channel is not None else None
+                                    "welcome_channel": server.welcome_channel.id if server.welcome_channel is not None else None,
+                                    "embed_author": server.embed_author,
+                                    "embed_icon_url": server.embed_icon_url
                                 }
                                 for server in Persistence.__Instance.servers
                             }

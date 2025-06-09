@@ -13,9 +13,9 @@ class ErrorType(StrEnum):
 
 class DefaultEmbed(Embed):
     KlaviaIcon: Final[str] = "https://klavia.io/assets/klavia_season_1-36be9a740f9c08419bb280628ec0c6f4d5bf419c1617da02ac8e91aa86367bf5.png"
-    TeamIcon: Final[str] = "https://cdn.discordapp.com/icons/1282935249298522122/40ea0effd154282afb36795a420bb468.png"
+    # TeamIcon: Final[str] = "https://cdn.discordapp.com/icons/1282935249298522122/40ea0effd154282afb36795a420bb468.png"
 
-    def __init__(self, title: str, description: str = "", *args, **kwargs) -> None:
+    def __init__(self, title: str, description: str = "", custom_title: str = "", author_icon_url: str = "", *args, **kwargs) -> None:
         super().__init__(
             title=title,
             description=description,
@@ -24,7 +24,7 @@ class DefaultEmbed(Embed):
             **kwargs
         )
         # self._add_custom_footer()
-        self.set_author(name="[MV] Marvel", icon_url=DefaultEmbed.TeamIcon)
+        self.set_author(name=custom_title, icon_url=author_icon_url)
         self.set_footer(text="Bot made by Henrik.", icon_url=DefaultEmbed.KlaviaIcon)
 
     # Issue: Custom footer is inserted above images...
