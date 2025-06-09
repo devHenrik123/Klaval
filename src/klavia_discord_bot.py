@@ -7,7 +7,9 @@ from re import search
 from time import time
 from typing import Any, Final
 
-from discord import Member, Intents, Embed, Bot, HTTPException, Role
+from discord import Member, Intents, Embed, Bot, HTTPException, Role, TextChannel
+from discord.abc import GuildChannel
+from discord.ext import commands
 from discord.ext.commands import Context
 from discord.utils import get
 from dotenv import dotenv_values
@@ -15,6 +17,7 @@ from dotenv import dotenv_values
 from crawler import Crawler, Garage, Car, UserStats, UserQuests
 from dscrd_bot.embeds import DefaultEmbed, OkayEmbed, ErrorType, ErrorEmbed
 from dscrd_bot.roles import HeBotRole
+from src.dscrd_bot.persistent_data import Persistence, Server, Channel
 
 BlankChar: Final[str] = "\u200b"
 BlankLine: Final[str] = f"{BlankChar}\n"
@@ -70,17 +73,50 @@ def main() -> None:
 
     @bot.event
     async def on_member_join(member: Member) -> Any:
-        welcome_channel = bot.get_channel(1381023282613981275)
-
+        server: Server = Persistence.get_server(str(member.guild.id))
+        welcome_channel: GuildChannel = bot.get_channel(int(server.welcome_channel.id))
+        role_unverified: Role = get(member.guild.roles, name=HeBotRole.Unverified)
+        await member.add_roles(role_unverified)
         embed: Embed = DefaultEmbed(
             f"Welcome {member.display_name}!",
             description=(
                 f"{member.mention} Please verify your Klavia account to gain access to all channels.\n"
-                f"To do so, use the **/verify**-command."
+                f"To do so, use the **/verify** command. "
+                f"The **/verify** command requires your **Klavia ID**. Your Klavia ID can be found in the "
+                "url, when changing your account settings."
             )
         )
-
         await welcome_channel.send("", embed=embed)
+
+    @commands.has_permissions(administrator=True)
+    @bot.slash_command(description="Setup command of the bot. Sets channels and creates necessary roles, etc.")
+    async def setup(ctx: Context, welcome_channel: TextChannel) -> Any:
+        await ctx.response.defer()
+
+        # Set welcome channel:
+        server: Server = Persistence.get_server(str(ctx.guild.id))
+        server.welcome_channel = Channel(id=str(welcome_channel.id))
+        Persistence.write()
+
+        # Create roles:
+        existing_roles: list[str] = [r.name for r in ctx.guild.roles]
+        new_roles: list[HeBotRole] = [e for e in HeBotRole if e not in existing_roles]
+        for role in new_roles:
+            await ctx.guild.create_role(name=role)
+
+        await ctx.respond(
+            embed=OkayEmbed(
+                title="Setup Finished",
+                description="".join([
+                    f"{ctx.author.mention}\n",
+                    f"Successfully finished the setup.\n",
+                    f"The welcome channel has been set to: {welcome_channel.name}\n"
+                    f"Created {len(new_roles)} new roles.\n",
+                    "".join([f"- {r}\n" for r in new_roles]),
+                    f"Thank you for using Henriks Bot!"
+                ])
+            )
+        )
 
     @bot.slash_command(description="Show a users current quests.")
     async def quests(ctx: Context, klavia_id: str = "") -> Any:
