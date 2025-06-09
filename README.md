@@ -4,15 +4,20 @@ Available commands, example images and short documentation can be found below.
 
 ## Commands:  
 The following commands are currently supported:  
-| Command    | Parameters            | Description |
-| ---------- | --------------------- | ----------- |
-| /setup     | <welcome_channel>     | Runs some setup tasks like creating all necessary roles on the server, etc. Also sets the welcome channel, which will be used for verifying new server members. |
-| /verify    | <klavia_id>           | Verifies an account and links it to the given klavia_id. The server display name is updated to mirror the Klavia profile. The profile id is also appended to the display name. |
-| /unverify  |                       | Unverifies the user who's using the command. |
-| /sync      |                       | Synchronizes the Discord server profile of the user to reflect the linked Klavia account. This includes the displayName for example. |
-| /garage    | <optional: klavia_id> | Displays some information about the users garage. |
-| /stats     | <optional: klavia_id> | Displays some statistics of the given user. |
-| /quests    | <optional: klavia_id> | Displays the users current quests. |
+| Command            | Parameters            | Description |
+|--------------------|-----------------------| ------------|
+| /setup             | <welcome_channel>     | Runs setup tasks, creates roles and sets the welcome channel. |
+| /verify            | <klavia_id>           | Verifies account, links it to the Klavia account and updates their server profile. |
+| /force_verify      | <server_member>       | Can be used by admins to verify other users or themselves immediately. |
+| /unverify          |                       | Unverifies the user who's using the command. |
+| /force_unverify    | <server_member>       | Can be used by admins to unverify other users or themselves immediately. |
+| /sync              |                       | Synchronizes the server profile and Klavia account. Updates server profile. |
+| /garage            | [klavia_id]           | Displays some information about the users garage. |
+| /stats             | [klavia_id]           | Displays some statistics of the given user. |
+| /quests            | [klavia_id]           | Displays the users current quests. |
+
+<> = Required Parameter  
+[ ] = Optional Parameter  
 
 ## Currently working on:
 ### Small scale persistent storage system.  
