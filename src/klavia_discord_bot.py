@@ -11,13 +11,12 @@ from discord.ext import commands
 from discord.ext.commands import Context, CommandError
 from discord.utils import get
 
-from crawler import Garage, Car, UserStats, UserQuests
+from crawler import Garage, Car, UserStats, UserQuests, UserIdentity
 from dscrd_bot.embeds import DefaultEmbed, OkayEmbed, ErrorType, ErrorEmbed
 from dscrd_bot.roles import HeBotRole
 from dscrd_bot.persistent_data import Persistence, Server, Channel, User
 from dscrd_bot.util import is_verified, error_handler, verification_check_passed, get_klava_id, get_crawler, BlankLine, \
     EnvVars, get_klavia_id_by_name
-from src.crawler import UserIdentity
 
 
 def main() -> None:
