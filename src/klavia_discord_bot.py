@@ -1,73 +1,23 @@
 import string
 from asyncio import sleep
 from math import floor
-from pathlib import Path
 from random import choice
 from time import time
-from typing import Any, Final
+from typing import Any
 
 from discord import Member, Intents, Embed, Bot, HTTPException, Role, TextChannel
 from discord.abc import GuildChannel
 from discord.ext import commands
-from discord.ext.commands import Context, MissingPermissions, CommandError
+from discord.ext.commands import Context, CommandError
 from discord.utils import get
-from dotenv import dotenv_values
 
-from crawler import Crawler, Garage, Car, UserStats, UserQuests
+from crawler import Garage, Car, UserStats, UserQuests
 from dscrd_bot.embeds import DefaultEmbed, OkayEmbed, ErrorType, ErrorEmbed
 from dscrd_bot.roles import HeBotRole
 from dscrd_bot.persistent_data import Persistence, Server, Channel, User
-
-BlankChar: Final[str] = "\u200b"
-BlankLine: Final[str] = f"{BlankChar}\n"
-
-RootDir: Path = Path(__file__).parent.parent.resolve()
-EnvVars: Final[dict[str, str]] = dotenv_values(RootDir / ".env")
-
-
-def get_crawler() -> Crawler:
-    return Crawler(EnvVars["klavia_username_or_mail"], EnvVars["klavia_password"])
-
-
-def is_verified(discord_user: Member) -> bool:
-    role_verified: Role = get(discord_user.guild.roles, name=HeBotRole.Verified)
-    return role_verified in discord_user.roles
-
-
-def get_klava_id(discord_user: Member) -> str:
-    for verified_user in Persistence.get_server(str(discord_user.guild.id)).verified_users:
-        if verified_user.id == str(discord_user.id):
-            return verified_user.klavia_id
-    raise Exception("Cannot find Klavia ID")
-
-
-async def error_handler(ctx: Context, error: CommandError) -> Any:
-    if isinstance(error, MissingPermissions):
-        await ctx.respond(
-            embed=ErrorEmbed(
-                error_type=ErrorType.Permission,
-                source=ctx.command.name,
-                reason=f"{ctx.author.mention} 🚫 You do not have sufficient permissions to use this command. 🚫"
-            ),
-            ephemeral=True
-        )
-
-
-async def verification_check_passed(ctx: Context, respond: bool = True) -> bool:
-    verified: bool = is_verified(ctx.author)
-    if not verified and respond:
-        await ctx.respond(
-            embed=ErrorEmbed(
-                error_type=ErrorType.Permission,
-                source=ctx.command.name,
-                reason=(
-                    f"{ctx.author.mention} "
-                    f"You must be verified to use this command.\n"
-                    f"Use the **/verify** command first."
-                )
-            )
-        )
-    return verified
+from dscrd_bot.util import is_verified, error_handler, verification_check_passed, get_klava_id, get_crawler, BlankLine, \
+    EnvVars, get_klavia_id_by_name
+from src.crawler import UserIdentity
 
 
 def main() -> None:
@@ -90,8 +40,6 @@ def main() -> None:
             description=(
                 f"{member.mention} Please verify your Klavia account to gain access to all channels.\n"
                 f"To do so, use the **/verify** command. "
-                f"The **/verify** command requires your **Klavia ID**. Your Klavia ID can be found in the "
-                "url, when changing your account settings."
             )
         )
         await welcome_channel.send("", embed=embed)
@@ -103,12 +51,20 @@ def main() -> None:
             server: Server = Persistence.get_server(str(member.guild.id))
             server.verified_users = [u for u in server.verified_users if u.id != str(member.id)]
             Persistence.write()
-        await bot.get_channel(int(Persistence.get_server(str(member.guild.id)).welcome_channel.id)).send(embed=DefaultEmbed(
-            title="User Left",
-            description=(
-                f"{member.mention} has left the server."
+        await bot.get_channel(
+            int(
+                Persistence.get_server(
+                    str(member.guild.id)
+                ).welcome_channel.id
             )
-        ))
+        ).send(
+            embed=DefaultEmbed(
+                title="User Left",
+                description=(
+                    f"{member.mention} has left the server."
+                )
+            )
+        )
 
     @commands.has_permissions(administrator=True)
     @bot.slash_command(description="Force a user verification. Can only be used by admins.")
@@ -182,18 +138,19 @@ def main() -> None:
         await error_handler(ctx, error)
 
     @bot.slash_command(description="Show a users current quests.")
-    async def quests(ctx: Context, klavia_id: str = "") -> Any:
+    async def quests(ctx: Context, klavia_name: str = "") -> Any:
         await ctx.response.defer()
 
-        if klavia_id == "":
-            if not await verification_check_passed(ctx):
-                return
-            else:
-                klavia_id = get_klava_id(ctx.author)
+        if not await verification_check_passed(ctx):
+            return
+
+        klavia_id: str | None = await get_klavia_id_by_name(ctx, klavia_name)
+        if klavia_id is None:
+            return
 
         quest_data: UserQuests = get_crawler().get_quests(klavia_id)
         response: Embed = DefaultEmbed(
-            title=f"{quest_data.username}'s Quests"
+            title=f"{quest_data.display_name}'s Quests"
         )
 
         def prog_bar(progress: int) -> str:
@@ -219,18 +176,19 @@ def main() -> None:
         await ctx.respond(embed=response)
 
     @bot.slash_command(description="Show a users stats.")
-    async def stats(ctx: Context, klavia_id: str = "") -> Any:
+    async def stats(ctx: Context, klavia_name: str = "") -> Any:
         await ctx.response.defer()
 
-        if klavia_id == "":
-            if not await verification_check_passed(ctx):
-                return
-            else:
-                klavia_id = get_klava_id(ctx.author)
+        if not await verification_check_passed(ctx):
+            return
+
+        klavia_id: str | None = await get_klavia_id_by_name(ctx, klavia_name)
+        if klavia_id is None:
+            return
 
         stat_data: UserStats = get_crawler().get_stats(klavia_id)
         response: Embed = DefaultEmbed(
-            title=f"{stat_data.username}'s Stats"
+            title=f"{stat_data.display_name}'s Stats"
         )
         response.add_field(
             name="",
@@ -259,14 +217,15 @@ def main() -> None:
         await ctx.respond(embed=response)
 
     @bot.slash_command(description="Show a users garage.")
-    async def garage(ctx: Context, klavia_id: str = "") -> Any:
+    async def garage(ctx: Context, klavia_name: str = "") -> Any:
         await ctx.response.defer()
 
-        if klavia_id == "":
-            if not await verification_check_passed(ctx):
-                return
-            else:
-                klavia_id = get_klava_id(ctx.author)
+        if not await verification_check_passed(ctx):
+            return
+
+        klavia_id: str | None = await get_klavia_id_by_name(ctx, klavia_name)
+        if klavia_id is None:
+            return
 
         garage_data: Garage = get_crawler().get_garage(klavia_id)
 
@@ -277,7 +236,7 @@ def main() -> None:
             return output
 
         response: Embed = DefaultEmbed(
-            title=f"{garage_data.username}'s Garage",
+            title=f"{garage_data.display_name}'s Garage",
             description="".join([
                 BlankLine,
                 f"**Owned cars:** {len(garage_data.cars)}\n"
@@ -328,12 +287,16 @@ def main() -> None:
         await ctx.respond(embed=response)
 
     @bot.slash_command(description="Verify your account by linking it to your Klavia profile.")
-    async def verify(ctx: Context, user_id: str) -> Any:
+    async def verify(ctx: Context, klavia_name: str) -> Any:
         await ctx.response.defer()
         response: Embed = DefaultEmbed(
             title="Verified",
             description="You have already been verified."
         )
+
+        klavia_id: str | None = await get_klavia_id_by_name(ctx, klavia_name)
+        if klavia_id is None:
+            return
 
         role_verified: Role = get(ctx.author.guild.roles, name=str(HeBotRole.Verified))
         role_unverified: Role = get(ctx.author.guild.roles, name=str(HeBotRole.Unverified))
@@ -343,7 +306,7 @@ def main() -> None:
         pending: bool = role_pending in ctx.author.roles
 
         polling_rate: int = 30  # check for verification every <polling_rate> seconds
-        timeout: int = 60 * 5  # verification timeout in seconds
+        timeout: int = 60 * 10  # verification timeout in seconds
         min_verification_time: str = f"Verification will take a minimum of {polling_rate} seconds."
 
         if pending:
@@ -356,7 +319,7 @@ def main() -> None:
                 ])
             )
         elif not verified:
-            initial_name: str = get_crawler().get_garage(user_id).username
+            initial_name: str = get_crawler().get_garage(user_id).display_name
             random_name: str = "".join(choice(string.ascii_letters) for _ in range(12))
             await ctx.respond(
                 embed=DefaultEmbed(
@@ -374,7 +337,7 @@ def main() -> None:
             timed_out: bool = False
             while not verified and not timed_out:
                 await sleep(polling_rate)
-                name: str = get_crawler().get_garage(user_id).username
+                name: str = get_crawler().get_garage(user_id).display_name
 
                 if name == random_name:
                     verified = True
@@ -421,7 +384,10 @@ def main() -> None:
                 )
 
         try:
-            await ctx.respond(embed=response)
+            await ctx.respond(
+                embed=response,
+                ephemeral=isinstance(response, ErrorEmbed)
+            )
         except HTTPException:  # invalid / expired token
             await ctx.send(embed=response)
 
@@ -435,7 +401,7 @@ def main() -> None:
         klavia_id: str = get_klava_id(ctx.author)
         if ctx.author != ctx.guild.owner:
             # Cannot edit owner profile through bots. :(
-            await ctx.author.edit(nick=get_crawler().get_garage(klavia_id).username)
+            await ctx.author.edit(nick=get_crawler().get_garage(klavia_id).display_name)
 
         response: Embed = OkayEmbed(
             title="Synchronized",
@@ -523,6 +489,55 @@ def main() -> None:
                     f"You must be verified before you can be unverified!"
                 )
             )
+
+        await ctx.respond(
+            embed=response,
+            ephemeral=isinstance(response, ErrorEmbed)
+        )
+
+    @bot.slash_command(description="Finds all matching Klavia accounts.")
+    async def find_racer(ctx: Context, klavia_name: str) -> Any:
+        await ctx.response.defer()
+        max_display: int = 10
+
+        users: list[UserIdentity] = get_crawler().search_racers(klavia_name)
+
+        response: Embed = DefaultEmbed(
+            title=f"User Search",
+            description=(
+                f"{ctx.author.mention}\n"
+                f"Found {len(users)} matching Klavia account{'s' if len(users) != 1 else ''}.\n"
+            )
+        )
+
+        if len(users) > max_display:
+            users = users[:max_display]
+
+        ids: str = "\n".join([u.id for u in users])
+        display_names: str = "\n".join([u.display_name for u in users])
+        usernames: str = "\n".join([u.username for u in users])
+
+        response.add_field(
+            name="",
+            value=(
+                f"**ID**\n{ids}"
+            ),
+            inline=True
+        )
+        response.add_field(
+            name="",
+            value=(
+                f"**Display Name**\n{display_names}"
+            ),
+            inline=True
+        )
+        response.add_field(
+            name="",
+            value=(
+                f"**Username**\n{usernames}"
+            ),
+            inline=True
+        )
 
         await ctx.respond(embed=response)
 

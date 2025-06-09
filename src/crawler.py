@@ -7,6 +7,13 @@ from requests import Response, Session
 
 
 @dataclass
+class UserIdentity:
+    id: str
+    display_name: str
+    username: str
+
+
+@dataclass
 class CarStats:
     races: int
     dqs: int
@@ -37,7 +44,7 @@ class UserQuestProgress:
 @dataclass
 class UserQuests:
     user_id: str
-    username: str
+    display_name: str
     quest_progress: list[UserQuestProgress]
 
 
@@ -54,7 +61,7 @@ class UserStatOverview:
 @dataclass
 class UserStats:
     user_id: str
-    username: str
+    display_name: str
     overview: UserStatOverview
     # Add more stats here!
 
@@ -62,7 +69,7 @@ class UserStats:
 @dataclass
 class Garage:
     user_id: str
-    username: str
+    display_name: str
     cars: list[Car]
     selected_car: Car
     selected_stats: CarStats
@@ -78,10 +85,29 @@ class Crawler:
     LeaderboardsUrl: Final[str] = KlaviaUrl + "/leaderboards"
     TextsUrl: Final[str] = LeaderboardsUrl + "/texts"
     CarsUrl: Final[str] = LeaderboardsUrl + "/cars"
+    SearchRacerUrl: Final[str] = RacerUrl.format(user_id="autocomplete_with_garage") + "?query={search}"
 
     def __init__(self, username: str, password: str) -> None:
         self._session: Session = Crawler._login(username, password)
         self._all_cars: dict[str, Car] = {c.name: c for c in self.get_cars()}
+
+    def search_racers(self, search: str) -> list[UserIdentity]:
+        response: Response = self._session.get(Crawler.SearchRacerUrl.format(search=search))
+        data: list[tuple[int, str, str]] = response.json()
+        return [
+            UserIdentity(
+                id=str(d[0]),
+                display_name=d[1],
+                username=d[2]
+            ) for d in data
+        ]
+
+    def search_racer(self, search: str) -> UserIdentity | None:
+        findings: list[UserIdentity] = self.search_racers(search)
+        racer: UserIdentity | None = None
+        if len(findings) > 0:
+            racer = findings[0]
+        return racer
 
     def get_quests(self, user_id: str) -> UserQuests:
         response: Response = self._session.get(Crawler.QuestsUrl.format(user_id=user_id))
@@ -105,7 +131,7 @@ class Crawler:
 
         return UserQuests(
             user_id=user_id,
-            username=username,
+            display_name=username,
             quest_progress=quest_progress
         )
 
@@ -134,7 +160,7 @@ class Crawler:
 
             return UserStats(
                 user_id=user_id,
-                username=username,
+                display_name=username,
                 overview=UserStatOverview(
                     lifetime_races=lifetime_races,
                     longest_session=longest_session,
@@ -148,7 +174,7 @@ class Crawler:
             # User might not have stats, yet.
             return UserStats(
                 user_id=user_id,
-                username=username,
+                display_name=username,
                 overview=UserStatOverview(
                     lifetime_races=0,
                     longest_session=0,
@@ -209,7 +235,7 @@ class Crawler:
 
         return Garage(
             user_id=user_id,
-            username=username,
+            display_name=username,
             cars=cars,
             selected_car=selected_car,
             selected_stats=selected_stats
@@ -264,4 +290,4 @@ if __name__ == '__main__':
     # crawler.get_garage(user)
     # crawler.get_stats(user)
     # crawler.get_quests(user)
-    crawler.get_cars()"""
+    crawler.search_racers("")"""
