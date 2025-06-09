@@ -1,4 +1,5 @@
 from abc import ABC
+from threading import Lock
 from dataclasses import dataclass
 from json import load, dump
 from pathlib import Path
@@ -26,7 +27,7 @@ Example persistence file:
 
 @dataclass
 class User:
-    id: int
+    id: str
     klavia_id: str
 
 
@@ -52,6 +53,7 @@ class Persistence(ABC):
     PersistenceFile: Final[Path] = RootDir / "persistence.json"
     Encoding: Final[str] = "utf-8"
     Indent: Final[int] = 4
+    FileLock: Final[Lock] = Lock()
 
     __Instance: PersistentData | None = None
 
@@ -63,24 +65,25 @@ class Persistence(ABC):
         if not force_reload and Persistence.__Instance is not None:
             return Persistence.__Instance
 
-        with open(Persistence.PersistenceFile, "r", encoding=Persistence.Encoding) as persistence:
-            per: dict = load(persistence)
-        Persistence.__Instance = PersistentData(
-            servers=[
-                Server(
-                    id=server[0],
-                    verified_users=[
-                        User(
-                            id=user[0],
-                            klavia_id=user[1]["klavia_id"]
-                        ) for user in server[1]["verified_users"].items()
-                    ] if "verified_users" in server[1] else [],
-                    welcome_channel=Channel(
-                        id=server[1]["welcome_channel"]
-                    ) if "welcome_channel" in server[1] else None
-                ) for server in per["servers"].items()
-            ]
-        )
+        with Persistence.FileLock:
+            with open(Persistence.PersistenceFile, "r", encoding=Persistence.Encoding) as persistence:
+                per: dict = load(persistence)
+            Persistence.__Instance = PersistentData(
+                servers=[
+                    Server(
+                        id=server[0],
+                        verified_users=[
+                            User(
+                                id=user[0],
+                                klavia_id=user[1]["klavia"]
+                            ) for user in server[1]["verified_users"].items()
+                        ] if "verified_users" in server[1] else [],
+                        welcome_channel=Channel(
+                            id=server[1]["welcome_channel"]
+                        ) if "welcome_channel" in server[1] else None
+                    ) for server in per["servers"].items()
+                ]
+            )
         return Persistence.__Instance
 
     @staticmethod
@@ -103,32 +106,38 @@ class Persistence(ABC):
 
     @staticmethod
     def write() -> None:
-        with open(Persistence.PersistenceFile, "w", encoding=Persistence.Encoding) as persistence:
-            """persistence.seek(0)
-            persistence.truncate()"""
+        with Persistence.FileLock:
+            with open(Persistence.PersistenceFile, "w", encoding=Persistence.Encoding) as persistence:
+                """persistence.seek(0)
+                persistence.truncate()"""
 
-            if Persistence.__Instance is None:
-                dump(
-                    {
-                        "servers": {
+                if Persistence.__Instance is None:
+                    dump(
+                        {
+                            "servers": {
 
-                        }
-                    },
-                    persistence,
-                    indent=Persistence.Indent
-                )
-            else:
-                dump(
-                    {
-                        "servers": {
-                            server.id: {
-                                "verified_users": {"klavia": user.klavia_id for user in server.verified_users},
-                                "welcome_channel": server.welcome_channel.id if server.welcome_channel is not None else None
                             }
-                            for server in Persistence.__Instance.servers
-                        }
-                    },
-                    persistence,
-                    indent=Persistence.Indent
-                )
+                        },
+                        persistence,
+                        indent=Persistence.Indent
+                    )
+                else:
+                    dump(
+                        {
+                            "servers": {
+                                server.id: {
+                                    "verified_users": {
+                                        user.id: {
+                                            "klavia": user.klavia_id
+                                        }
+                                        for user in server.verified_users
+                                    },
+                                    "welcome_channel": server.welcome_channel.id if server.welcome_channel is not None else None
+                                }
+                                for server in Persistence.__Instance.servers
+                            }
+                        },
+                        persistence,
+                        indent=Persistence.Indent
+                    )
         Persistence.get(force_reload=True)

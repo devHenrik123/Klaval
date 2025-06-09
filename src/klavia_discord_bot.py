@@ -10,14 +10,14 @@ from typing import Any, Final
 from discord import Member, Intents, Embed, Bot, HTTPException, Role, TextChannel
 from discord.abc import GuildChannel
 from discord.ext import commands
-from discord.ext.commands import Context
+from discord.ext.commands import Context, MissingPermissions, CommandError
 from discord.utils import get
 from dotenv import dotenv_values
 
 from crawler import Crawler, Garage, Car, UserStats, UserQuests
 from dscrd_bot.embeds import DefaultEmbed, OkayEmbed, ErrorType, ErrorEmbed
 from dscrd_bot.roles import HeBotRole
-from src.dscrd_bot.persistent_data import Persistence, Server, Channel
+from src.dscrd_bot.persistent_data import Persistence, Server, Channel, User
 
 BlankChar: Final[str] = "\u200b"
 BlankLine: Final[str] = f"{BlankChar}\n"
@@ -36,13 +36,22 @@ def is_verified(discord_user: Member) -> bool:
 
 
 def get_klava_id(discord_user: Member) -> str:
-    return search(r".*?\[([0-9]*?)]", discord_user.display_name).group(1)
+    for verified_user in Persistence.get_server(str(discord_user.guild.id)).verified_users:
+        if verified_user.id == discord_user:
+            return verified_user.klavia_id
+    raise Exception("Cannot find Klavia ID")
 
 
-def make_discord_name(klavia_id: str, klavia_name: str = "") -> str:
-    if klavia_name == "":
-        klavia_name = get_crawler().get_garage(klavia_id).username
-    return f"{klavia_name} [{klavia_id}]"
+async def error_handler(ctx: Context, error: CommandError) -> Any:
+    if isinstance(error, MissingPermissions):
+        await ctx.respond(
+            embed=ErrorEmbed(
+                error_type=ErrorType.Permission,
+                source=ctx.command.name,
+                reason=f"{ctx.author.mention} 🚫 You do not have sufficient permissions to use this command. 🚫"
+            ),
+            ephemeral=True
+        )
 
 
 async def verification_check_passed(ctx: Context, respond: bool = True) -> bool:
@@ -88,6 +97,57 @@ def main() -> None:
         )
         await welcome_channel.send("", embed=embed)
 
+    @bot.event
+    async def on_member_remove(member: Member) -> Any:
+        if is_verified(member):
+            # Remove member from persistence:
+            server: Server = Persistence.get_server(str(member.guild.id))
+            server.verified_users = [u for u in server.verified_users if u.id != str(member.id)]
+            Persistence.write()
+        await bot.get_channel(int(Persistence.get_server(str(member.guild.id)).welcome_channel.id)).send(embed=DefaultEmbed(
+            title="User Left",
+            description=(
+                f"{member.mention} has left the server."
+            )
+        ))
+
+    @commands.has_permissions(administrator=True)
+    @bot.slash_command(description="Force a user verification. Can only be used by admins.")
+    async def force_verify(ctx: Context, user: Member, klavia_id: str) -> Any:
+        await ctx.response.defer()
+
+        # Persistence:
+        server: Server = Persistence.get_server(str(ctx.guild.id))
+        if not is_verified(user):
+            server.verified_users.append(
+                User(
+                    id=str(user.id),
+                    klavia_id=klavia_id
+                )
+            )
+        Persistence.write()
+
+        # Assign roles:
+        role_unverified: Role = get(user.guild.roles, name=HeBotRole.Unverified)
+        role_verified: Role = get(user.guild.roles, name=HeBotRole.Verified)
+        role_pending: Role = get(user.guild.roles, name=HeBotRole.VerificationPending)
+        if role_unverified in user.roles:
+            await user.remove_roles(role_unverified)
+        if role_pending in user.roles:
+            await user.remove_roles(role_pending)
+        await user.add_roles(role_verified)
+
+        await ctx.respond(embed=OkayEmbed(
+            title="Verified",
+            description=(
+                f"{user.mention} has been force verified."
+            )
+        ))
+
+    @force_verify.error
+    async def force_verify_error(ctx: Context, error: CommandError) -> Any:
+        await error_handler(ctx, error)
+
     @commands.has_permissions(administrator=True)
     @bot.slash_command(description="Setup command of the bot. Sets channels and creates necessary roles, etc.")
     async def setup(ctx: Context, welcome_channel: TextChannel) -> Any:
@@ -117,6 +177,10 @@ def main() -> None:
                 ])
             )
         )
+
+    @setup.error
+    async def setup_error(ctx: Context, error: CommandError) -> Any:
+        await error_handler(ctx, error)
 
     @bot.slash_command(description="Show a users current quests.")
     async def quests(ctx: Context, klavia_id: str = "") -> Any:
@@ -315,11 +379,23 @@ def main() -> None:
 
                 if name == random_name:
                     verified = True
+
+                    # Persistence:
+                    server: Server = Persistence.get_server(str(ctx.guild.id))
+                    server.verified_users.append(
+                        User(
+                            id=str(ctx.author.id),
+                            klavia_id=user_id
+                        )
+                    )
+                    Persistence.write()
+
+                    # Roles:
                     await ctx.author.remove_roles(role_unverified)
                     await ctx.author.add_roles(role_verified)
                     if ctx.author != ctx.guild.owner:
                         # Cannot edit owner profile through bots.
-                        await ctx.author.edit(nick=make_discord_name(user_id, initial_name))
+                        await ctx.author.edit(nick=initial_name)
 
                 timed_out = time() >= start_time + timeout
 
@@ -360,7 +436,7 @@ def main() -> None:
         klavia_id: str = get_klava_id(ctx.author)
         if ctx.author != ctx.guild.owner:
             # Cannot edit owner profile through bots. :(
-            await ctx.author.edit(nick=make_discord_name(klavia_id))
+            await ctx.author.edit(nick=get_crawler().get_garage(klavia_id).username)
 
         response: Embed = OkayEmbed(
             title="Synchronized",
@@ -370,6 +446,35 @@ def main() -> None:
             )
         )
         await ctx.respond(embed=response)
+
+    @commands.has_permissions(administrator=True)
+    @bot.slash_command(description="Force unverify a user.")
+    async def force_unverify(ctx: Context, user: Member) -> Any:
+        await ctx.response.defer()
+        if is_verified(user):
+            # Persistence:
+            server: Server = Persistence.get_server(str(ctx.guild.id))
+            server.verified_users = [u for u in server.verified_users if u.id != user.id]
+            Persistence.write()
+
+            # Roles
+            role_verified: Role = get(ctx.author.guild.roles, name=str(HeBotRole.Verified))
+            role_unverified: Role = get(ctx.author.guild.roles, name=str(HeBotRole.Unverified))
+            await ctx.author.remove_roles(role_verified)
+            await ctx.author.add_roles(role_unverified)
+
+        response = OkayEmbed(
+            title="Unverified",
+            description=(
+                f"{ctx.author.mention} successfully unverified {user.mention}.\n"
+            )
+        )
+        await ctx.respond(embed=response)
+
+    @force_unverify.error
+    async def force_unverify_error(ctx: Context, error: CommandError) -> Any:
+        await error_handler(ctx, error)
+
 
     @bot.slash_command(description="Unlink your Klavia account from your Discord profile.")
     async def unverify(ctx: Context) -> Any:
@@ -384,6 +489,12 @@ def main() -> None:
 
         response: Embed
         if verified:
+            # Persistence:
+            server: Server = Persistence.get_server(str(ctx.guild.id))
+            server.verified_users = [u for u in server.verified_users if u.id != ctx.author.id]
+            Persistence.write()
+
+            # Roles
             await ctx.author.remove_roles(role_verified)
             await ctx.author.add_roles(role_unverified)
 
