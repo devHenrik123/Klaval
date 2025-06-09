@@ -40,29 +40,27 @@ def main() -> None:
             description=(
                 f"{member.mention} Please verify your Klavia account to gain access to all channels.\n"
                 f"To do so, use the **/verify** command. "
-            )
+            ),
+            custom_title=server.embed_author,
+            author_icon_url=server.embed_icon_url
         )
         await welcome_channel.send("", embed=embed)
 
     @bot.event
     async def on_member_remove(member: Member) -> Any:
+        server: Server = Persistence.get_server(str(member.guild.id))
         if is_verified(member):
             # Remove member from persistence:
-            server: Server = Persistence.get_server(str(member.guild.id))
             server.verified_users = [u for u in server.verified_users if u.id != str(member.id)]
             Persistence.write()
-        await bot.get_channel(
-            int(
-                Persistence.get_server(
-                    str(member.guild.id)
-                ).welcome_channel.id
-            )
-        ).send(
+        await bot.get_channel(int(server.welcome_channel.id)).send(
             embed=DefaultEmbed(
                 title="User Left",
                 description=(
                     f"{member.mention} has left the server."
-                )
+                ),
+                custom_title=server.embed_author,
+                author_icon_url=server.embed_icon_url
             )
         )
 
@@ -105,12 +103,14 @@ def main() -> None:
 
     @commands.has_permissions(administrator=True)
     @bot.slash_command(description="Setup command of the bot. Sets channels and creates necessary roles, etc.")
-    async def setup(ctx: Context, welcome_channel: TextChannel) -> Any:
+    async def setup(ctx: Context, message_author: str, message_icon_url: str, welcome_channel: TextChannel) -> Any:
         await ctx.response.defer()
 
         # Set welcome channel:
         server: Server = Persistence.get_server(str(ctx.guild.id))
         server.welcome_channel = Channel(id=str(welcome_channel.id))
+        server.embed_author = message_author
+        server.embed_icon_url = message_icon_url
         Persistence.write()
 
         # Create roles:
@@ -140,6 +140,7 @@ def main() -> None:
     @bot.slash_command(description="Show a users current quests.")
     async def quests(ctx: Context, klavia_name: str = "") -> Any:
         await ctx.response.defer()
+        server: Server = Persistence.get_server(str(ctx.guild.id))
 
         if not await verification_check_passed(ctx):
             return
@@ -150,7 +151,9 @@ def main() -> None:
 
         quest_data: UserQuests = get_crawler().get_quests(klavia_id)
         response: Embed = DefaultEmbed(
-            title=f"{quest_data.display_name}'s Quests"
+            title=f"{quest_data.display_name}'s Quests",
+            custom_title=server.embed_author,
+            author_icon_url=server.embed_icon_url
         )
 
         def prog_bar(progress: int) -> str:
@@ -178,6 +181,7 @@ def main() -> None:
     @bot.slash_command(description="Show a users stats.")
     async def stats(ctx: Context, klavia_name: str = "") -> Any:
         await ctx.response.defer()
+        server: Server = Persistence.get_server(str(ctx.guild.id))
 
         if not await verification_check_passed(ctx):
             return
@@ -188,7 +192,9 @@ def main() -> None:
 
         stat_data: UserStats = get_crawler().get_stats(klavia_id)
         response: Embed = DefaultEmbed(
-            title=f"{stat_data.display_name}'s Stats"
+            title=f"{stat_data.display_name}'s Stats",
+            custom_title=server.embed_author,
+            author_icon_url=server.embed_icon_url
         )
         response.add_field(
             name="",
@@ -219,6 +225,7 @@ def main() -> None:
     @bot.slash_command(description="Show a users garage.")
     async def garage(ctx: Context, klavia_name: str = "") -> Any:
         await ctx.response.defer()
+        server: Server = Persistence.get_server(str(ctx.guild.id))
 
         if not await verification_check_passed(ctx):
             return
@@ -242,7 +249,9 @@ def main() -> None:
                 f"**Owned cars:** {len(garage_data.cars)}\n"
             ]),
             thumbnail=garage_data.selected_car.image_url,
-            image=garage_data.selected_car.image_url
+            image=garage_data.selected_car.image_url,
+            custom_title=server.embed_author,
+            author_icon_url=server.embed_icon_url
         )
         for car_list in cars(3):
             response.add_field(
@@ -289,9 +298,13 @@ def main() -> None:
     @bot.slash_command(description="Verify your account by linking it to your Klavia profile.")
     async def verify(ctx: Context, klavia_name: str) -> Any:
         await ctx.response.defer()
+        server: Server = Persistence.get_server(str(ctx.guild.id))
+
         response: Embed = DefaultEmbed(
             title="Verified",
-            description="You have already been verified."
+            description="You have already been verified.",
+            custom_title=server.embed_author,
+            author_icon_url=server.embed_icon_url
         )
 
         klavia_id: str | None = await get_klavia_id_by_name(ctx, klavia_name)
@@ -316,10 +329,12 @@ def main() -> None:
                     f"{ctx.author.mention} ",
                     f"You are currently being verified. Please be patient.\n",
                     min_verification_time
-                ])
+                ]),
+                custom_title=server.embed_author,
+                author_icon_url=server.embed_icon_url
             )
         elif not verified:
-            initial_name: str = get_crawler().get_garage(user_id).display_name
+            initial_name: str = get_crawler().get_garage(klavia_id).display_name
             random_name: str = "".join(choice(string.ascii_letters) for _ in range(12))
             await ctx.respond(
                 embed=DefaultEmbed(
@@ -328,7 +343,9 @@ def main() -> None:
                         f"{ctx.author.mention} ",
                         f"Please change your Klavia display name to **{random_name}** to verify your account.\n",
                         min_verification_time
-                    ])
+                    ]),
+                    custom_title=server.embed_author,
+                    author_icon_url=server.embed_icon_url
                 )
             )
             await ctx.author.add_roles(role_pending)
@@ -337,7 +354,7 @@ def main() -> None:
             timed_out: bool = False
             while not verified and not timed_out:
                 await sleep(polling_rate)
-                name: str = get_crawler().get_garage(user_id).display_name
+                name: str = get_crawler().get_garage(klavia_id).display_name
 
                 if name == random_name:
                     verified = True
@@ -347,7 +364,7 @@ def main() -> None:
                     server.verified_users.append(
                         User(
                             id=str(ctx.author.id),
-                            klavia_id=user_id
+                            klavia_id=klavia_id
                         )
                     )
                     Persistence.write()
@@ -394,6 +411,7 @@ def main() -> None:
     @bot.slash_command(description="Synchronize your Discord profile with your Klavia account.")
     async def sync(ctx: Context) -> Any:
         await ctx.response.defer()
+        server: Server = Persistence.get_server(str(ctx.guild.id))
 
         if not await verification_check_passed(ctx):
             return
@@ -416,9 +434,10 @@ def main() -> None:
     @bot.slash_command(description="Force unverify a user.")
     async def force_unverify(ctx: Context, user: Member) -> Any:
         await ctx.response.defer()
+        server: Server = Persistence.get_server(str(ctx.guild.id))
+
         if is_verified(user):
             # Persistence:
-            server: Server = Persistence.get_server(str(ctx.guild.id))
             server.verified_users = [u for u in server.verified_users if u.id != user.id]
             Persistence.write()
 
@@ -444,6 +463,7 @@ def main() -> None:
     @bot.slash_command(description="Unlink your Klavia account from your Discord profile.")
     async def unverify(ctx: Context) -> Any:
         await ctx.response.defer()
+        server: Server = Persistence.get_server(str(ctx.guild.id))
 
         role_verified: Role = get(ctx.author.guild.roles, name=str(HeBotRole.Verified))
         role_unverified: Role = get(ctx.author.guild.roles, name=str(HeBotRole.Unverified))
@@ -455,7 +475,6 @@ def main() -> None:
         response: Embed
         if verified:
             # Persistence:
-            server: Server = Persistence.get_server(str(ctx.guild.id))
             server.verified_users = [u for u in server.verified_users if u.id != ctx.author.id]
             Persistence.write()
 
@@ -498,6 +517,8 @@ def main() -> None:
     @bot.slash_command(description="Finds all matching Klavia accounts.")
     async def find_racer(ctx: Context, klavia_name: str) -> Any:
         await ctx.response.defer()
+        server: Server = Persistence.get_server(str(ctx.guild.id))
+
         max_display: int = 10
 
         users: list[UserIdentity] = get_crawler().search_racers(klavia_name)
@@ -507,7 +528,9 @@ def main() -> None:
             description=(
                 f"{ctx.author.mention}\n"
                 f"Found {len(users)} matching Klavia account{'s' if len(users) != 1 else ''}.\n"
-            )
+            ),
+            custom_title=server.embed_author,
+            author_icon_url=server.embed_icon_url
         )
 
         if len(users) > max_display:

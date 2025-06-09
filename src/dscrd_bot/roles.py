@@ -1,10 +1,10 @@
 from enum import StrEnum
 from typing import Final
 
-RolePrefix: Final[str] = "HKBot_"
+RolePrefix: Final[str] = "HK "
 
 
 class HeBotRole(StrEnum):
-    Unverified = RolePrefix + "unverified"
-    VerificationPending = RolePrefix + "verification_pending"
-    Verified = RolePrefix + "verified"
+    Unverified = RolePrefix + "Unverified"
+    VerificationPending = RolePrefix + "Verification Pending"
+    Verified = RolePrefix + "Verified"
