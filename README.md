@@ -6,12 +6,12 @@ Available commands, example images and short documentation can be found below.
 The following commands are currently supported:  
 | Command            | Parameters            | Description |
 |--------------------|-----------------------| ------------|
-| /setup             | <welcome_channel> <message_author> <message_icon_url> | Should be used immediately after adding bot to server. Runs setup tasks, creates roles, sets the welcome channel, message author and icon. |
+| /setup             | [welcome_channel] [message_author] [message_icon_url] | Should be used immediately after adding Klaval to a server. Runs setup tasks, creates roles, sets the welcome channel, message author and icon. If the welcome channel is not defined, new members will not be greeted by Klaval. If the message author is not defined, the author and icon will both not show. |
 | /find_racer        | <klavia_name>         | Searches for Klavia account and returns id, display name and username. |
 | /verify            | <klavia_name>         | Verifies account, links it to the Klavia account and updates their server profile. |
-| /force_verify      | <member> <klavia_id>  | Can be used by admins to verify other users or themselves immediately. |
+| /force_verify      | <member> <klavia_id>  | Can be used by admins to verify other users or themselves immediately. Klavia IDs can be found using /find_racer. |
 | /unverify          |                       | Unverifies the user who's using the command. |
-| /force_unverify    | <member> <klavia_id>  | Can be used by admins to unverify other users or themselves immediately. |
+| /force_unverify    | <member>              | Can be used by admins to unverify other users or themselves immediately. |
 | /sync              |                       | Synchronizes the server profile and Klavia account. Updates server profile. |
 | /garage            | [klavia_name]         | Displays some information about the users garage. |
 | /stats             | [klavia_name]         | Displays some statistics of the given user. |
@@ -21,8 +21,10 @@ The following commands are currently supported:
 [ ] = Optional Parameter  
 
 ## Currently working on:
-### More commands  
-I am planning to add more commands for team stats, comparisons, etc. Also your team will obviously be linked to your profile through your linked Klavia account.
+### Bugs & more commands  
+- /shop
+- /leaderboards
+- /team
 
 ## Development Environment
 1. Python 3.12  
