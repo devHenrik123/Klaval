@@ -11,7 +11,7 @@ from discord.ext import commands
 from discord.ext.commands import Context, CommandError
 from discord.utils import get
 
-from crawler import Garage, Car, UserStats, UserQuests, UserIdentity
+from crawler import Garage, Car, UserStats, UserQuests, UserIdentity, Crawler
 from dscrd_bot.embeds import DefaultEmbed, OkayEmbed, ErrorType, ErrorEmbed
 from dscrd_bot.roles import HeBotRole
 from dscrd_bot.persistent_data import Persistence, Server, Channel, User
@@ -589,7 +589,7 @@ def main() -> None:
         if len(users) > max_display:
             users = users[:max_display]
 
-        ids: str = "\n".join([u.id for u in users])
+        ids: str = "\n".join([f"[{u.id}]({Crawler.RacerUrl.format(user_id=u.id)})" for u in users])
         display_names: str = "\n".join([u.display_name for u in users])
         usernames: str = "\n".join([u.username for u in users])
 
