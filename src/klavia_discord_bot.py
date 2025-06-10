@@ -5,18 +5,18 @@ from random import choice
 from time import time
 from typing import Any
 
-from discord import Member, Intents, Embed, Bot, HTTPException, Role, TextChannel
+from discord import Member, Intents, Embed, Bot, HTTPException, Role, TextChannel, Guild
 from discord.abc import GuildChannel
 from discord.ext import commands
 from discord.ext.commands import Context, CommandError
 from discord.utils import get
 
-from crawler import Garage, Car, UserStats, UserQuests, UserIdentity
+from crawler import Garage, Car, UserStats, UserQuests, UserIdentity, Crawler
 from dscrd_bot.embeds import DefaultEmbed, OkayEmbed, ErrorType, ErrorEmbed
 from dscrd_bot.roles import HeBotRole
 from dscrd_bot.persistent_data import Persistence, Server, Channel, User
 from dscrd_bot.util import is_verified, error_handler, verification_check_passed, get_klava_id, get_crawler, BlankLine, \
-    EnvVars, get_klavia_id_by_name
+    EnvVars, get_klavia_id_by_name, BotName
 
 
 def main() -> None:
@@ -27,6 +27,26 @@ def main() -> None:
         members=True
     )
     bot: Bot = Bot(intents=intents)
+
+    @bot.event
+    async def on_guild_join(guild: Guild) -> Any:
+        for channel in guild.text_channels:
+            if channel.permissions_for(guild.me).send_messages:
+                await channel.send(
+                    embed=DefaultEmbed(
+                        title=f"Hello, I am {BotName}.",
+                        description=(
+                            "Thank you for adding me to your server! To make sure that I can do my work properly, please "
+                            "move my role to the top of the roles list. To configure me, use the **/setup** command. "
+                            "If you are interested in the source code, you may take a look at the official "
+                            f"[{BotName}](https://github.com/devHenrik123/Klaval) "
+                            "git repository. If you want to discover useful commands and features, please take a look "
+                            " at the [readme file](https://github.com/devHenrik123/Klaval/blob/main/README.md)."
+                        )
+                    )
+                )
+                break
+
 
     @bot.event
     async def on_member_join(member: Member) -> Any:
@@ -93,7 +113,9 @@ def main() -> None:
             title="Verified",
             description=(
                 f"{user.mention} has been force verified."
-            )
+            ),
+            custom_title=server.embed_author,
+            author_icon_url=server.embed_icon_url
         ))
 
     @force_verify.error
@@ -101,13 +123,14 @@ def main() -> None:
         await error_handler(ctx, error)
 
     @commands.has_permissions(administrator=True)
-    @bot.slash_command(description="Setup command of the bot. Sets channels and creates necessary roles, etc.")
-    async def setup(ctx: Context, message_author: str, message_icon_url: str, welcome_channel: TextChannel) -> Any:
+    @bot.slash_command(description="Set the appearance of messages, add a custom icon, author name and an optional welcome channel.")
+    async def setup(ctx: Context, message_author: str = "", message_icon_url: str = "", welcome_channel: TextChannel | None = None) -> Any:
         await ctx.response.defer()
 
-        # Set welcome channel:
+        # Set server settings:
         server: Server = Persistence.get_server(str(ctx.guild.id))
-        server.welcome_channel = Channel(id=str(welcome_channel.id))
+        if welcome_channel is not None:
+            server.welcome_channel = Channel(id=str(welcome_channel.id))
         server.embed_author = message_author
         server.embed_icon_url = message_icon_url
         Persistence.write()
@@ -124,11 +147,13 @@ def main() -> None:
                 description="".join([
                     f"{ctx.author.mention}\n",
                     f"Successfully finished the setup.\n",
-                    f"The welcome channel has been set to: {welcome_channel.name}\n"
+                    f"The welcome channel has been set to: {welcome_channel.name if welcome_channel else 'None'}\n",
                     f"Created {len(new_roles)} new roles.\n",
                     "".join([f"- {r}\n" for r in new_roles]),
-                    f"Thank you for using Henriks Bot!"
-                ])
+                    f"Thank you for using {BotName}!"
+                ]),
+                custom_title=server.embed_author,
+                author_icon_url=server.embed_icon_url
             )
         )
 
@@ -150,7 +175,7 @@ def main() -> None:
 
         quest_data: UserQuests = get_crawler().get_quests(klavia_id)
         response: Embed = DefaultEmbed(
-            title=f"{quest_data.display_name}'s Quests",
+            title=f"{quest_data.display_name}'s Quests:",
             custom_title=server.embed_author,
             author_icon_url=server.embed_icon_url
         )
@@ -191,7 +216,7 @@ def main() -> None:
 
         stat_data: UserStats = get_crawler().get_stats(klavia_id)
         response: Embed = DefaultEmbed(
-            title=f"{stat_data.display_name}'s Stats",
+            title=f"{stat_data.display_name}'s Stats:",
             custom_title=server.embed_author,
             author_icon_url=server.embed_icon_url
         )
@@ -242,7 +267,7 @@ def main() -> None:
             return output
 
         response: Embed = DefaultEmbed(
-            title=f"{garage_data.display_name}'s Garage",
+            title=f"{garage_data.display_name}'s Garage:",
             description="".join([
                 BlankLine,
                 f"**Owned cars:** {len(garage_data.cars)}\n"
@@ -333,18 +358,34 @@ def main() -> None:
                 author_icon_url=server.embed_icon_url
             )
         elif not verified:
-            initial_name: str = get_crawler().get_garage(klavia_id).display_name
-            random_name: str = "".join(choice(string.ascii_letters) for _ in range(12))
+            garage: Garage = get_crawler().get_garage(klavia_id)
+
+            if len(garage.cars) <= 1:
+                ctx.respond(
+                    embed=ErrorEmbed(
+                        error_type=ErrorType.Permission,
+                        source=ctx.command.name,
+                        reason=f"You must own at least two cars to get verified. You currently own {len(garage.cars)}.",
+                        custom_title=server.embed_author,
+                        author_icon_url=server.embed_icon_url
+                    )
+                )
+                return
+
+            initial_car: Car = garage.selected_car
+            random_car: Car = choice([c for c in garage.cars if c.name != initial_car.name])
+
             await ctx.respond(
                 embed=DefaultEmbed(
                     title="Verification",
-                    description="".join([
-                        f"{ctx.author.mention} ",
-                        f"Please change your Klavia display name to **{random_name}** to verify your account.\n",
-                        min_verification_time
-                    ]),
+                    description=(
+                        f"{ctx.author.mention} "
+                        f"To verify your account, please change your selected car in Klavia to **{random_car.name}**.\n"
+                        f"{min_verification_time}"
+                    ),
                     custom_title=server.embed_author,
-                    author_icon_url=server.embed_icon_url
+                    author_icon_url=server.embed_icon_url,
+                    image=random_car.image_url
                 )
             )
             await ctx.author.add_roles(role_pending)
@@ -353,9 +394,9 @@ def main() -> None:
             timed_out: bool = False
             while not verified and not timed_out:
                 await sleep(polling_rate)
-                name: str = get_crawler().get_garage(klavia_id).display_name
+                car: Car = get_crawler().get_garage(klavia_id).selected_car
 
-                if name == random_name:
+                if car.name == random_car.name:
                     verified = True
 
                     # Persistence:
@@ -373,7 +414,7 @@ def main() -> None:
                     await ctx.author.add_roles(role_verified)
                     if ctx.author != ctx.guild.owner:
                         # Cannot edit owner profile through bots.
-                        await ctx.author.edit(nick=initial_name)
+                        await ctx.author.edit(nick=get_crawler().get_garage(klavia_id).display_name)
 
                 timed_out = time() >= start_time + timeout
 
@@ -384,9 +425,10 @@ def main() -> None:
                     title="Verified",
                     description=(
                         f"{ctx.author.mention} "
-                        f"You have been verified. You may now change your Klavia display name to whatever you like.\n"
-                        f"You can update your server name using the **sync**-command."
-                    )
+                        f"You have been verified. You may now change your selected car to whatever you like."
+                    ),
+                    custom_title=server.embed_author,
+                    author_icon_url=server.embed_icon_url
                 )
             else:
                 response = ErrorEmbed(
@@ -396,7 +438,9 @@ def main() -> None:
                         f"{ctx.author.mention}"
                         f"Cannot verify your account.\n"
                         f"Please try again later and make sure to change your Klavia display name accordingly."
-                    )
+                    ),
+                    custom_title=server.embed_author,
+                    author_icon_url=server.embed_icon_url
                 )
 
         try:
@@ -425,7 +469,9 @@ def main() -> None:
             description=(
                 f"{ctx.author.mention} "
                 f"Your accounts have successfully been synchronized."
-            )
+            ),
+            custom_title=server.embed_author,
+            author_icon_url=server.embed_icon_url
         )
         await ctx.respond(embed=response)
 
@@ -450,7 +496,9 @@ def main() -> None:
             title="Unverified",
             description=(
                 f"{ctx.author.mention} successfully unverified {user.mention}.\n"
-            )
+            ),
+            custom_title=server.embed_author,
+            author_icon_url=server.embed_icon_url
         )
         await ctx.respond(embed=response)
 
@@ -487,7 +535,9 @@ def main() -> None:
                     f"{ctx.author.mention} "
                     f"You are now unverified.\n"
                     f"You may verify again using the **verify** command."
-                )
+                ),
+                custom_title=server.embed_author,
+                author_icon_url=server.embed_icon_url
             )
         elif pending:
             response = ErrorEmbed(
@@ -496,7 +546,9 @@ def main() -> None:
                 reason=(
                     f"{ctx.author.mention} "
                     f"You must wait for your verification process to finish, before you can unverify."
-                )
+                ),
+                custom_title=server.embed_author,
+                author_icon_url=server.embed_icon_url
             )
         else:
             response = ErrorEmbed(
@@ -505,7 +557,9 @@ def main() -> None:
                 reason=(
                     f"{ctx.author.mention} "
                     f"You must be verified before you can be unverified!"
-                )
+                ),
+                custom_title=server.embed_author,
+                author_icon_url=server.embed_icon_url
             )
 
         await ctx.respond(
@@ -535,7 +589,7 @@ def main() -> None:
         if len(users) > max_display:
             users = users[:max_display]
 
-        ids: str = "\n".join([u.id for u in users])
+        ids: str = "\n".join([f"[{u.id}]({Crawler.RacerUrl.format(user_id=u.id)})" for u in users])
         display_names: str = "\n".join([u.display_name for u in users])
         usernames: str = "\n".join([u.username for u in users])
 
