@@ -51,19 +51,20 @@ def main() -> None:
     @bot.event
     async def on_member_join(member: Member) -> Any:
         server: Server = Persistence.get_server(str(member.guild.id))
-        welcome_channel: GuildChannel = bot.get_channel(int(server.welcome_channel.id))
-        role_unverified: Role = get(member.guild.roles, name=HeBotRole.Unverified)
-        await member.add_roles(role_unverified)
-        embed: Embed = DefaultEmbed(
-            f"Welcome {member.display_name}!",
-            description=(
-                f"{member.mention} Please verify your Klavia account to gain access to all channels.\n"
-                f"To do so, use the **/verify** command. "
-            ),
-            custom_title=server.embed_author,
-            author_icon_url=server.embed_icon_url
-        )
-        await welcome_channel.send("", embed=embed)
+        if server.welcome_channel is not None:
+            welcome_channel: GuildChannel = bot.get_channel(int(server.welcome_channel.id))
+            role_unverified: Role = get(member.guild.roles, name=HeBotRole.Unverified)
+            await member.add_roles(role_unverified)
+            embed: Embed = DefaultEmbed(
+                f"Welcome {member.display_name}!",
+                description=(
+                    f"{member.mention} Please verify your Klavia account to gain access to all channels.\n"
+                    f"To do so, use the **/verify** command. "
+                ),
+                custom_title=server.embed_author,
+                author_icon_url=server.embed_icon_url
+            )
+            await welcome_channel.send("", embed=embed)
 
     @bot.event
     async def on_member_remove(member: Member) -> Any:
