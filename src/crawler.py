@@ -115,7 +115,10 @@ class Crawler:
         username: str = soup.find("h3").get_text(strip=True)
 
         quest_names: list[str] = [q.text for q in soup.find_all("a", attrs={"data-turbo-frame": "modal"}) if len]
-        quest_names[0] = soup.find("h5").get_text(strip=True)
+        try:
+            quest_names[0] = soup.find("h5").get_text(strip=True)
+        except AttributeError:
+            pass  # No active quest! -> ignore
         quest_progs: list[int] = [
             int(p.get("data-progress-percentage-value"))
             for p in soup.find_all("div", attrs={"data-controller": "progress"})

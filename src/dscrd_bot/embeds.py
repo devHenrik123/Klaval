@@ -1,4 +1,5 @@
 from enum import StrEnum
+from random import choice
 from typing import Final, override, cast
 
 from discord import Embed, Colour
@@ -11,8 +12,23 @@ class ErrorType(StrEnum):
     Parameter = "Invalid Parameter"
 
 
+Quotes: Final[list[str]] = [
+    "Thanks to Nusakan!",
+    "Klaval was made by Henrik.",
+    "Don't forget to race today!",
+    "🏎️ Faster is better!",
+    "⌨️ Mechanical keyboards. ⌨️",
+    "Season 2 is here!",
+    "The Boring Car looks most interesting.",
+    "What's Rabbit-A-Grow supposed to be?",
+    "The Smallmouth Bass is a car.",
+    "Anyone's allowed to edit my source code.",
+    "Accuracy > Speed"
+]
+
+
 class DefaultEmbed(Embed):
-    KlaviaIcon: Final[str] = "https://klavia.io/assets/klavia_season_1-36be9a740f9c08419bb280628ec0c6f4d5bf419c1617da02ac8e91aa86367bf5.png"
+    KlaviaIcon: Final[str] = "https://klavia.io/assets/klavia_season_2-6353a01159273012427268aadeee2db81d48cc1bebfe7bd191cd978a8e7e235e.png"
     # TeamIcon: Final[str] = "https://cdn.discordapp.com/icons/1282935249298522122/40ea0effd154282afb36795a420bb468.png"
 
     def __init__(self, title: str, description: str = "", custom_title: str = "", author_icon_url: str = "", *args, **kwargs) -> None:
@@ -25,7 +41,7 @@ class DefaultEmbed(Embed):
         )
         # self._add_custom_footer()
         self.set_author(name=custom_title, icon_url=author_icon_url)
-        self.set_footer(text="Bot made by Henrik.", icon_url=DefaultEmbed.KlaviaIcon)
+        self.set_footer(text=choice(Quotes), icon_url=DefaultEmbed.KlaviaIcon)
 
     # Issue: Custom footer is inserted above images...
     """def _add_custom_footer(self) -> None:
@@ -45,18 +61,22 @@ class DefaultEmbed(Embed):
 
 
 class ErrorEmbed(DefaultEmbed):
-    def __init__(self, error_type: ErrorType, source: str, reason: str) -> None:
+    def __init__(self, error_type: ErrorType, source: str, reason: str, custom_title: str = "", author_icon_url: str = "") -> None:
         super().__init__(
             title=error_type,
-            description=f"Source: {source}\nReason: {reason}"
+            description=f"Source: {source}\nReason: {reason}",
+            custom_title=custom_title,
+            author_icon_url=author_icon_url
         )
         self.colour = Colour.red()
 
 
 class OkayEmbed(DefaultEmbed):
-    def __init__(self, title: str, description: str = "") -> None:
+    def __init__(self, title: str, description: str = "", custom_title: str = "", author_icon_url: str = "") -> None:
         super().__init__(
             title=title,
-            description=description
+            description=description,
+            custom_title=custom_title,
+            author_icon_url=author_icon_url
         )
         self.colour = Colour.green()

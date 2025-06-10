@@ -8,8 +8,11 @@ from dotenv import dotenv_values
 
 from crawler import Crawler, UserIdentity
 from dscrd_bot.embeds import ErrorEmbed, ErrorType
-from dscrd_bot.persistent_data import Persistence
+from dscrd_bot.persistent_data import Persistence, Server
 from dscrd_bot.roles import HeBotRole
+
+
+BotName: Final[str] = "Klaval"
 
 
 BlankChar: Final[str] = "\u200b"
@@ -38,11 +41,14 @@ def get_klava_id(verified_discord_user: Member) -> str:
 
 async def error_handler(ctx: Context, error: CommandError) -> Any:
     if isinstance(error, MissingPermissions):
+        server: Server = Persistence.get_server(str(ctx.guild.id))
         await ctx.respond(
             embed=ErrorEmbed(
                 error_type=ErrorType.Permission,
                 source=ctx.command.name,
-                reason=f"{ctx.author.mention} 🚫 You do not have sufficient permissions to use this command. 🚫"
+                reason=f"{ctx.author.mention} 🚫 You do not have sufficient permissions to use this command. 🚫",
+                custom_title=server.embed_author,
+                author_icon_url=server.embed_icon_url
             ),
             ephemeral=True
         )
@@ -51,6 +57,7 @@ async def error_handler(ctx: Context, error: CommandError) -> Any:
 async def verification_check_passed(ctx: Context, respond: bool = True) -> bool:
     verified: bool = is_verified(ctx.author)
     if not verified and respond:
+        server: Server = Persistence.get_server(str(ctx.guild.id))
         await ctx.respond(
             embed=ErrorEmbed(
                 error_type=ErrorType.Permission,
@@ -59,7 +66,9 @@ async def verification_check_passed(ctx: Context, respond: bool = True) -> bool:
                     f"{ctx.author.mention} "
                     f"You must be verified to use this command.\n"
                     f"Use the **/verify** command first."
-                )
+                ),
+                custom_title=server.embed_author,
+                author_icon_url=server.embed_icon_url
             ),
             ephemeral=True
         )
@@ -69,11 +78,14 @@ async def verification_check_passed(ctx: Context, respond: bool = True) -> bool:
 async def get_identity(ctx: Context, klavia_name: str) -> UserIdentity | None:
     racer: UserIdentity | None = get_crawler().search_racer(klavia_name)
     if racer is None:
+        server: Server = Persistence.get_server(str(ctx.guild.id))
         await ctx.respond(
             embed=ErrorEmbed(
                 error_type=ErrorType.Parameter,
                 source=ctx.command.name,
-                reason=f"{ctx.author.mention} Cannot find Klavia account of \"{klavia_name}\"."
+                reason=f"{ctx.author.mention} Cannot find Klavia account of \"{klavia_name}\".",
+                custom_title=server.embed_author,
+                author_icon_url=server.embed_icon_url
             ),
             ephemeral=True
         )
