@@ -80,8 +80,6 @@ async def finish_setup(interaction: Interaction):
 class StartSettingsModalView(View):
     @button(label="Configure")
     async def button_one_callback(self, _: Button, interaction: Interaction) -> None:
-        self.disable_all_items()
-        await interaction.response.edit_message(view=self)
         await interaction.response.send_modal(SettingsModal())
 
     @button(label="Skip")
