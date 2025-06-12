@@ -1,7 +1,7 @@
 from enum import StrEnum
 from typing import Final
 
-RolePrefix: Final[str] = "Klava: "
+RolePrefix: Final[str] = "Klaval: "
 
 
 class HeBotRole(StrEnum):
