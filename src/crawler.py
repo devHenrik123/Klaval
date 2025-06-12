@@ -96,7 +96,7 @@ class Crawler:
         response: Response = self._session.get(Crawler.SearchRacerUrl.format(search=search))
         data: list[tuple[int, str, str]] = response.json()
         # Sort by similarity to search string. (descending) Klavia's sorting is pretty random...
-        data = sorted(data, key=lambda x: SequenceMatcher(None, x, search).real_quick_ratio())
+        data = sorted(data, key=lambda x: SequenceMatcher(None, x[2], search).real_quick_ratio(), reverse=True)
         return [
             UserIdentity(
                 id=str(d[0]),

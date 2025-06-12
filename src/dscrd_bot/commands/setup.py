@@ -80,10 +80,14 @@ async def finish_setup(interaction: Interaction):
 class StartSettingsModalView(View):
     @button(label="Configure")
     async def button_one_callback(self, _: Button, interaction: Interaction) -> None:
+        self.disable_all_items()
+        await interaction.response.edit_message(view=self)
         await interaction.response.send_modal(SettingsModal())
 
     @button(label="Skip")
     async def button_callback(self, _: Button, interaction: Interaction) -> None:
+        self.disable_all_items()
+        await interaction.response.edit_message(view=self)
         server: Server = Persistence.get_server(str(interaction.guild.id))
         server.embed_author = ""
         server.embed_icon_url = ""
@@ -115,19 +119,17 @@ class SelectWelcomeChannelView(SelectChannelView):
         super().__init__(callback=on_welcome_channel_selected)
 
     @button(label="Skip")
-    async def button_callback(self, btn: Button, interaction: Interaction) -> None:
+    async def button_callback(self, _: Button, interaction: Interaction) -> None:
+        self.disable_all_items()
+        await interaction.response.edit_message(view=self)
         await on_welcome_channel_selected(interaction, None)
 
 
 async def command_setup(ctx: Context) -> None:
-    # message_author: str = "", message_icon_url: str = "", welcome_channel: TextChannel | None = None
     await ctx.response.defer(ephemeral=True)
 
-    # create setup with default values: ==
+    # create setup with default values:
     save_setup(ctx.guild.id)
-    # ====================================
-
-    server: Server = Persistence.get_server(str(ctx.guild.id))
 
     await ctx.respond(
         embed=DefaultEmbed(
@@ -144,33 +146,3 @@ async def command_setup(ctx: Context) -> None:
         view=SelectWelcomeChannelView(),
         ephemeral=True
     )
-
-    """# Set server settings:
-    server: Server = Persistence.get_server(str(ctx.guild.id))
-    if welcome_channel is not None:
-        server.welcome_channel = Channel(id=str(welcome_channel.id))
-    server.embed_author = message_author
-    server.embed_icon_url = message_icon_url
-    Persistence.write()
-
-    # Create roles:
-    existing_roles: list[str] = [r.name for r in ctx.guild.roles]
-    new_roles: list[HeBotRole] = [e for e in HeBotRole if e not in existing_roles]
-    for role in new_roles:
-        await ctx.guild.create_role(name=role)
-
-    await ctx.respond(
-        embed=OkayEmbed(
-            title="Setup Finished",
-            description="".join([
-                f"{ctx.author.mention}\n",
-                f"Successfully finished the setup.\n",
-                f"The welcome channel has been set to: {welcome_channel.name if welcome_channel else 'None'}\n",
-                f"Created {len(new_roles)} new roles.\n",
-                "".join([f"- {r}\n" for r in new_roles]),
-                f"Thank you for using {BotName}!"
-            ]),
-            custom_title=server.embed_author,
-            author_icon_url=server.embed_icon_url
-        )
-    )"""

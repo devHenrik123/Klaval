@@ -165,7 +165,8 @@ async def command_verify(ctx: Context, klavia_name: str) -> Any:
                 title="Verification",
                 description=(
                     f"{ctx.author.mention} "
-                    f"Please select your Klavia account from the list below:"
+                    f"Please select your Klavia account from the list below. If your account is not in the list below, "
+                    f"please make sure to use your Klavia user name, not your display name."
                 ),
                 custom_title=server.embed_author,
                 author_icon_url=server.embed_icon_url,
