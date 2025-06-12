@@ -6,7 +6,7 @@ Available commands, example images and short documentation can be found below.
 The following commands are currently supported:  
 | Command            | Parameters            | Description |
 |--------------------|-----------------------| ------------|
-| /setup             | [welcome_channel] [message_author] [message_icon_url] | Should be used immediately after adding Klaval to a server. Runs setup tasks, creates roles, sets the welcome channel, message author and icon. If the welcome channel is not defined, new members will not be greeted by Klaval. If the message author is not defined, the author and icon will both not show. |
+| /setup             |                       | Should be used immediately after adding Klaval to a server. Runs setup tasks, creates roles, sets the welcome channel, message author and icon. If the welcome channel is not defined, new members will not be greeted by Klaval. If the message author is not defined, the author and icon will both not show. |
 | /find_racer        | <klavia_name>         | Searches for Klavia account and returns id, display name and username. |
 | /verify            | <klavia_name>         | Verifies account, links it to the Klavia account and updates their server profile. |
 | /force_verify      | <member> <klavia_id>  | Can be used by admins to verify other users or themselves immediately. Klavia IDs can be found using /find_racer. |
@@ -36,6 +36,8 @@ The following commands are currently supported:
     klavia_username_or_mail=<enter-your-klavia-mail-here>
     klavia_password=<enter-your-klavia-password-here>
     discord_bot_token=<enter-your-bot-token-here>
+    operation_mode=<development or production>
+    dev_server_id=<dev-server-id-or-nothing-if-production>
     ```
 3. Discord server setup:  
    Make sure to give the bot sufficient permissions. It needs to do the following things:
@@ -44,9 +46,9 @@ The following commands are currently supported:
    - Send messages.
      
    To avoid conflict with other bots, all roles have a prefix. These roles will be automatically created, once you run the setup command:
-   - HK Unverified
-   - HK Verification Pending
-   - HK Verified
+   - Klaval: Unverified
+   - Klaval: Verification Pending
+   - Klaval: Verified
 
 ## Examples:
 ![verification](readme/verification.png)
