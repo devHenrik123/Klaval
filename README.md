@@ -2,11 +2,17 @@
 I got bored, so I decided to write a Discord bot for Klavia.  
 Available commands, example images and short documentation can be found below.
 
+## Features:
+- Link a Klavia team to your discord server and get updates on new members, promotions, etc.
+- Verify server members using their Klavia account and synchronize their server profiles automatically.
+- Access Klavia profiles, stats, quests and more using commands like "/garage".
+- Search for Klavia accounts using the "/find_racer" command.
+
 ## Commands:  
 The following commands are currently supported:  
 | Command            | Parameters            | Description |
 |--------------------|-----------------------| ------------|
-| /setup             |                       | Should be used immediately after adding Klaval to a server. Runs setup tasks, creates roles, sets the welcome channel, message author and icon. If the welcome channel is not defined, new members will not be greeted by Klaval. If the message author is not defined, the author and icon will both not show. |
+| /setup             |                       | Should be used immediately after adding Klaval to a server. Runs setup tasks, creates roles, sets the welcome channel, message author and icon. Most importantly it allows you to link a team to your server and configure event updates on Discord. If the welcome channel is not defined, new members will not be greeted by Klaval. If the message author is not defined, the author and icon will both not show. If no Klavia team has been linked, you will not receive any team updates. |
 | /find_racer        | <klavia_name>         | Searches for Klavia account and returns id, display name and username. |
 | /verify            | <klavia_name>         | Verifies account, links it to the Klavia account and updates their server profile. |
 | /force_verify      | <member> <klavia_id>  | Can be used by admins to verify other users or themselves immediately. Klavia IDs can be found using /find_racer. |
@@ -21,6 +27,8 @@ The following commands are currently supported:
 [ ] = Optional Parameter  
 
 ## Currently working on:
+### Better performance
+- improving crawler performance by using async
 ### Bugs & more commands  
 - /shop
 - /leaderboards
