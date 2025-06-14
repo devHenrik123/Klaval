@@ -1,9 +1,16 @@
-from discord import Embed
+from discord import Embed, Member
 from discord.ext.commands import Context
 
 from dscrd_bot.embeds import OkayEmbed
 from dscrd_bot.persistent_data import Persistence, Server
 from dscrd_bot.util import get_crawler, verification_check_passed, get_klava_id
+
+
+async def sync(user: Member) -> None:
+    klavia_id: str = get_klava_id(user)
+    if user.id != user.guild.owner_id:
+        # Cannot edit owner profile through bots. :(
+        await user.edit(nick=get_crawler().get_garage(klavia_id).display_name)
 
 
 async def command_sync(ctx: Context) -> None:
@@ -13,10 +20,7 @@ async def command_sync(ctx: Context) -> None:
     if not await verification_check_passed(ctx):
         return
 
-    klavia_id: str = get_klava_id(ctx.author)
-    if ctx.author != ctx.guild.owner:
-        # Cannot edit owner profile through bots. :(
-        await ctx.author.edit(nick=get_crawler().get_garage(klavia_id).display_name)
+    await sync(ctx.author)
 
     response: Embed = OkayEmbed(
         title="Synchronized",

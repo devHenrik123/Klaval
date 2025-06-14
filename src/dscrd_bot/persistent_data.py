@@ -1,4 +1,5 @@
 from abc import ABC
+from enum import StrEnum
 from threading import Lock
 from dataclasses import dataclass
 from json import load, dump
@@ -17,12 +18,67 @@ Example persistence file:
                     "klavia": "32893"  <- klavia user id
                 }
             },
-            "welcome_channel": "728245897"  <- welcome channel id
+            "welcome_channel": "728245897",  <- welcome channel id
+            "embed_author": "",  <- author of messages; some string
+            "embed_icon_url": "",  <- icon of messages; some url to an image
+            "linked_team": {  <- the linked Klavia team or None
+                "tag": "VYN",  <- tag of linked team
+                "settings": {  <- settings of team_link
+                    "notify_events": [  <- Notification about these events should be sent to events channel
+                        "New Member"    <- Example event, from enum -> Notify if new member joins the team on Klavia
+                    ]
+                },
+                "events_channel": "728245897",  <- team events channel id
+                "cached_state": {  <- cached mirror state of team to compare with in member change events, etc
+                    "members": [  <- cached list of members
+                        {
+                            "id": "32893",  <- klavia id
+                            "role": "Regular",  <- Role in team
+                        }
+                    ]
+                }
+            }
         }
     }
 }
 
 """
+
+
+class TeamEvent(StrEnum):
+    NewMember = "NewMember"
+    MemberLeft = "MemberLeft"
+    Promotion = "Promotion"
+
+
+@dataclass
+class TeamLinkSettings:
+    notify_events: list[TeamEvent]
+
+
+class TeamMemberRole(StrEnum):
+    Leader = "Leader"
+    Agent = "Agent"
+    Regular = "Regular"
+
+
+@dataclass
+class CachedTeamMember:
+    id: str
+    role: TeamMemberRole
+
+
+@dataclass
+class CachedTeamState:
+    members: list[CachedTeamMember]
+
+
+@dataclass
+class TeamLink:
+    tag: str
+    settings: TeamLinkSettings
+    events_channel: str | None
+    cached_state: CachedTeamState | None
 
 
 @dataclass
@@ -43,6 +99,7 @@ class Server:
     welcome_channel: Channel | None
     embed_author: str
     embed_icon_url: str
+    linked_team: TeamLink | None
 
 
 @dataclass
@@ -82,9 +139,29 @@ class Persistence(ABC):
                         ] if "verified_users" in server[1] else [],
                         welcome_channel=Channel(
                             id=server[1]["welcome_channel"]
-                        ) if "welcome_channel" in server[1] else None,
+                        ),
                         embed_author=server[1]["embed_author"],
-                        embed_icon_url=server[1]["embed_icon_url"]
+                        embed_icon_url=server[1]["embed_icon_url"],
+                        linked_team=TeamLink(
+                            tag=server[1]["linked_team"]["tag"],
+                            settings=TeamLinkSettings(
+                                notify_events=[
+                                    TeamEvent(e) for e in server[1]["linked_team"]["settings"]["notify_events"]
+                                ]
+                            ),
+                            events_channel=server[1]["linked_team"]["events_channel"],
+                            cached_state=CachedTeamState(
+                                members=[
+                                    CachedTeamMember(
+                                        id=m["id"],
+                                        role=TeamMemberRole(m["role"])
+                                    )
+                                    for m in server[1]["linked_team"]["cached_state"]["members"]
+                                    if "members" in server[1]["linked_team"]["cached_state"]
+                                ]
+                            ) if "cached_state" in server[1]["linked_team"] and
+                                 server[1]["linked_team"]["cached_state"] else None
+                        ) if "linked_team" in server[1] and server[1]["linked_team"] is not None else None
                     ) for server in per["servers"].items()
                 ]
             )
@@ -104,7 +181,8 @@ class Persistence(ABC):
                 verified_users=[],
                 welcome_channel=None,
                 embed_author="",
-                embed_icon_url=""
+                embed_icon_url="",
+                linked_team=None
             )
             Persistence.__Instance.servers.append(output)
             Persistence.write()
@@ -135,9 +213,27 @@ class Persistence(ABC):
                                         }
                                         for user in server.verified_users
                                     },
-                                    "welcome_channel": server.welcome_channel.id if server.welcome_channel is not None else None,
+                                    "welcome_channel": server.welcome_channel.id if server.welcome_channel else None,
                                     "embed_author": server.embed_author,
-                                    "embed_icon_url": server.embed_icon_url
+                                    "embed_icon_url": server.embed_icon_url,
+                                    "linked_team": {
+                                        "tag": server.linked_team.tag,
+                                        "settings": {
+                                            "notify_events": [
+                                                str(e) for e in server.linked_team.settings.notify_events
+                                            ]
+                                        },
+                                        "events_channel": server.linked_team.events_channel,
+                                        "cached_state": {
+                                            "members": [
+                                                {
+                                                    "id": m.id,
+                                                    "role": str(m.role)
+                                                }
+                                                for m in server.linked_team.cached_state.members
+                                            ]
+                                        } if server.linked_team.cached_state else None
+                                    } if server.linked_team else None
                                 }
                                 for server in Persistence.__Instance.servers
                             }

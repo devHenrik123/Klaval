@@ -2,6 +2,7 @@ from discord import Member, Role
 from discord.ext.commands import Context
 from discord.utils import get
 
+from dscrd_bot.commands.sync import sync
 from dscrd_bot.embeds import OkayEmbed
 from dscrd_bot.roles import HeBotRole
 from dscrd_bot.persistent_data import Persistence, Server, User
@@ -31,6 +32,8 @@ async def command_force_verify(ctx: Context, user: Member, klavia_id: str) -> No
     if role_pending in user.roles:
         await user.remove_roles(role_pending)
     await user.add_roles(role_verified)
+
+    await sync(user)
 
     await ctx.respond(
         embed=OkayEmbed(
