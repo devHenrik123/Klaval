@@ -8,6 +8,7 @@ from discord.ext.commands import Context
 from discord.utils import get
 
 from crawler import Garage, Car, UserIdentity
+from dscrd_bot.commands.sync import sync
 from dscrd_bot.embeds import DefaultEmbed, OkayEmbed, ErrorType, ErrorEmbed
 from dscrd_bot.roles import HeBotRole
 from dscrd_bot.persistent_data import Persistence, Server, User
@@ -89,6 +90,8 @@ async def on_account_selected(interaction: Interaction, identity: UserIdentity) 
         timed_out = time() >= start_time + VerificationTimeout
 
     await interaction.user.remove_roles(role_pending)
+
+    await sync(interaction.user)
 
     if verified:
         await interaction.respond(

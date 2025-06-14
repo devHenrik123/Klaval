@@ -76,6 +76,15 @@ class Garage:
     selected_stats: CarStats
 
 
+@dataclass
+class Team:
+    name: str
+    tag: str
+    leader: UserIdentity
+    agents: list[UserIdentity]
+    members: list[UserIdentity]
+
+
 class Crawler:
     KlaviaUrl: Final[str] = "https://klavia.io"
     SignInUrl: Final[str] = KlaviaUrl + "/racers/sign_in"
@@ -87,10 +96,47 @@ class Crawler:
     TextsUrl: Final[str] = LeaderboardsUrl + "/texts"
     CarsUrl: Final[str] = LeaderboardsUrl + "/cars"
     SearchRacerUrl: Final[str] = RacerUrl.format(user_id="autocomplete_with_garage") + "?query={search}"
+    TeamsUrl: Final[str] = KlaviaUrl + "/teams/{team_tag}"
 
     def __init__(self, username: str, password: str) -> None:
         self._session: Session = Crawler._login(username, password)
         self._all_cars: dict[str, Car] = {c.name: c for c in self.get_cars()}
+
+    def get_team(self, tag: str) -> Team:
+        tag = tag.upper()
+        response: Response = self._session.get(Crawler.TeamsUrl.format(team_tag=tag))
+        soup: BeautifulSoup = BeautifulSoup(response.text, "html.parser")
+
+        name: str = soup.find("h1").get_text(strip=True)
+
+        leader: UserIdentity
+        agents: list[UserIdentity] = []
+        members: list[UserIdentity] = []
+        member_table: Tag = soup.find("table", attrs={"id": "tbl-daily-tracker"})
+        member_table_body: Tag = member_table.find("tbody")
+        for tr in member_table_body.find_all("tr"):
+            racer: Tag; squad: Tag; joined: Tag; last_race: Tag; team_races: Tag  # noqa  Ugly, but type hints. :(
+            racer, squad, joined, last_race, team_races = tr.find_all("td")[:5]
+            # racer:
+            racer_id: str = racer.find("a")["href"].split("/")[-1]
+            badge: Tag | None = racer.find("div", attrs={"class": "badge"})
+            identity: UserIdentity = self.search_racer(racer_id)
+            members.append(identity)
+            if badge:
+                title = badge["title"]
+                if title == "Leader":
+                    leader = identity
+                elif title == "Agent":
+                    agents.append(identity)
+
+        # noinspection PyUnboundLocalVariable
+        return Team(
+            name=name,
+            tag=tag,
+            leader=leader,
+            agents=agents,
+            members=members
+        )
 
     def search_racers(self, search: str) -> list[UserIdentity]:
         response: Response = self._session.get(Crawler.SearchRacerUrl.format(search=search))
@@ -296,4 +342,5 @@ if __name__ == '__main__':
     # crawler.get_garage(user)
     # crawler.get_stats(user)
     # crawler.get_quests(user)
-    crawler.search_racers("")"""
+    # crawler.search_racers("")
+    crawler.get_team("vyn")"""

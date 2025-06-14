@@ -3,6 +3,7 @@
 
 # various files
 persistence.json
+local_dev_data
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
