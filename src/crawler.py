@@ -100,7 +100,6 @@ class Crawler:
 
     def __init__(self, username: str, password: str) -> None:
         self._session: Session = Crawler._login(username, password)
-        self._all_cars: dict[str, Car] = {c.name: c for c in self.get_cars()}
 
     def get_team(self, tag: str) -> Team:
         tag = tag.upper()
@@ -241,23 +240,25 @@ class Crawler:
         response: Response = self._session.get(Crawler.GarageUrl.format(user_id=user_id))
         soup: BeautifulSoup = BeautifulSoup(response.text, "html.parser")
         username: str = soup.find("h3").get_text(strip=True)
+        available_cars: dict[str, Car] = self.get_cars_dict()
         cars: list[Car] = []
         for car_tag in soup.find_all("a", attrs={"data-turbo-frame": "selected_car"}):
             name: str = car_tag.get("title").split("|")[0].strip()
-            car: Car | None = self._all_cars.get(name, None)
+            car: Car | None = available_cars.get(name, None)
             if car:
                 cars.append(car)
             else:
                 # Cannot find car -> Ignore for now
                 # Might do some error logging in the future...
                 pass
-        selected_car: Car = self._all_cars[
+        selected_car: Car = available_cars.get(
             soup
             .find("div", id="selected_car")
             .find("div", class_="card-header")
             .find(text=True, recursive=False)
-            .strip()
-        ]
+            .strip(),
+            list(available_cars.values())[0]
+        )
 
         try:
             selected_stats_table: Tag = soup.find("tbody")
@@ -293,22 +294,21 @@ class Crawler:
             selected_stats=selected_stats
         )
 
-    def get_cars(self) -> list[Car]:
-        if hasattr(self, "_all_cars"):
-            return list(self._all_cars.values())
-
+    def get_cars_dict(self) -> dict[str, Car]:
         response: Response = self._session.get(Crawler.CarsUrl)
         soup: BeautifulSoup = BeautifulSoup(response.text, "html.parser")
-        cars: list[Car] = []
+        cars: dict[str, Car] = {}
         for car_tr in soup.find_all("tr")[1:]:
             image: Tag = car_tr.find("img")
-            cars.append(
-                Car(
-                    image.attrs["title"].strip(),
-                    image.attrs["src"]
-                )
+            name: str = image.attrs["title"].strip()
+            cars[name] = Car(
+                name=name,
+                image_url=image.attrs["src"]
             )
         return cars
+
+    def get_cars(self) -> list[Car]:
+        return list(self.get_cars_dict().values())
 
     @staticmethod
     def _login(username: str, password: str) -> Session:
