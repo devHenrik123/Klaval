@@ -85,6 +85,19 @@ class Team:
     members: list[UserIdentity]
 
 
+@dataclass
+class ShopOffer:
+    name: str
+    price: int
+    image_url: str
+
+
+@dataclass
+class Shop:
+    seasonal_offers: list[ShopOffer]
+    alices_deals: list[ShopOffer]
+
+
 class Crawler:
     KlaviaUrl: Final[str] = "https://klavia.io"
     SignInUrl: Final[str] = KlaviaUrl + "/racers/sign_in"
@@ -97,9 +110,41 @@ class Crawler:
     CarsUrl: Final[str] = LeaderboardsUrl + "/cars"
     SearchRacerUrl: Final[str] = RacerUrl.format(user_id="autocomplete_with_garage") + "?query={search}"
     TeamsUrl: Final[str] = KlaviaUrl + "/teams/{team_tag}"
+    ShopsUrl: Final[str] = KlaviaUrl + "/shops"
+    ShopSeasonUrl: Final[str] = ShopsUrl + "/season-shop"
+    ShopDealsUrl: Final[str] = ShopsUrl + "/alices-deals"
+    ShopItemsUrl: Final[str] = KlaviaUrl + "/shop_items/{item_id}"
 
     def __init__(self, username: str, password: str) -> None:
         self._session: Session = Crawler._login(username, password)
+
+    def get_skins(self) -> None:
+        response: Response = self._session.get("https://klavia.io/garage/cars/1495/view-car-skins")
+        soup: BeautifulSoup = BeautifulSoup(response.text, "html.parser")
+        # TODO: implement
+        return
+
+    def get_shop(self) -> Shop:
+        def get_section_offers(shop_section_url: str) -> list[ShopOffer]:
+            response: Response = self._session.get(shop_section_url)
+            soup: BeautifulSoup = BeautifulSoup(response.text, "html.parser")
+            offers_table = soup.find("div", attrs={"class": "row g-3"})
+            offers: list[ShopOffer] = []
+            for offer_div in offers_table.find_all("div", attrs={"class": "col-lg-6"}):
+                img_url: str = offer_div.find("div", attrs={"class": "mb-3"}).find("img").get("src")
+                offers.append(
+                    ShopOffer(
+                        name=offer_div.find("h4").get_text().strip("\n").split("\n")[0],
+                        price=int(offer_div.find("strong").get_text().replace(",", "")),
+                        image_url=(Crawler.KlaviaUrl if img_url[0] == "/" else "") + img_url
+                    )
+                )
+            return offers
+
+        return Shop(
+            seasonal_offers=get_section_offers(Crawler.ShopSeasonUrl),
+            alices_deals=get_section_offers(Crawler.ShopDealsUrl)
+        )
 
     def get_team(self, tag: str) -> Team:
         tag = tag.upper()
@@ -333,7 +378,7 @@ class Crawler:
 
 
 if __name__ == '__main__':
-    """from dotenv import dotenv_values
+    from dotenv import dotenv_values
     from pathlib import Path
     RootDir = Path(__file__).parent.parent.resolve()
     EnvVars: Final[dict[str, str]] = dotenv_values(RootDir / ".env")
@@ -343,4 +388,6 @@ if __name__ == '__main__':
     # crawler.get_stats(user)
     # crawler.get_quests(user)
     # crawler.search_racers("")
-    crawler.get_team("vyn")"""
+    # crawler.get_team("vyn")
+    # crawler.get_skins()
+    crawler.get_shop()
