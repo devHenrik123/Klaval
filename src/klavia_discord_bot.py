@@ -6,14 +6,15 @@ from discord.ext import commands, tasks
 from discord.ext.commands import Context, CommandError
 from discord.utils import get
 
+from dscrd_bot.background_tasks.task_notify_shop_update import task_notify_shop_update
 from dscrd_bot.background_tasks.task_notify_team_events import task_notify_team_events
+from dscrd_bot.background_tasks.task_persist_shop_state import task_persist_shop_state
 from dscrd_bot.background_tasks.task_persist_team_state import task_persist_team_state
 from dscrd_bot.background_tasks.task_sync_users import task_sync_users
 from dscrd_bot.commands.find_racer import command_find_racer
 from dscrd_bot.commands.force_unverify import command_force_unverify
 from dscrd_bot.commands.force_verify import command_force_verify
 from dscrd_bot.commands.garage import command_garage
-from dscrd_bot.commands.link_team import command_link_team
 from dscrd_bot.commands.quests import command_quests
 from dscrd_bot.commands.setup import command_setup
 from dscrd_bot.commands.stats import command_stats
@@ -53,6 +54,10 @@ def main() -> None:
         await task_notify_team_events(bot)
         print("Persist team state . . .")
         await task_persist_team_state()
+        print("Send shop updates . . .")
+        await task_notify_shop_update(bot)
+        print("Persist shop state . . .")
+        await task_persist_shop_state()
         print("Scheduled trigger finished.")
 
     @bot.event
@@ -114,15 +119,6 @@ def main() -> None:
                     author_icon_url=server.embed_icon_url
                 )
             )
-
-    @commands.has_permissions(administrator=True)
-    @bot.slash_command(description="Link a Klavia team to your Server and configure notifications for team events.")
-    async def link_team(ctx: Context, team_tag: str) -> Any:
-        await command_link_team(ctx, team_tag)
-
-    @link_team.error
-    async def link_team_error(ctx: Context, error: CommandError) -> Any:
-        await error_handler(ctx, error)
 
     @commands.has_permissions(administrator=True)
     @bot.slash_command(description="Force a user verification. Can only be used by admins.")

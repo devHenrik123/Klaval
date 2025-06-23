@@ -39,7 +39,11 @@ Example persistence file:
                 }
             }
         }
-    }
+    },
+    "shop_offers": [  <- offers currently in the shop(s)
+        "quest name 1",
+        "quest name 2"
+    ]
 }
 
 """
@@ -105,6 +109,7 @@ class Server:
 @dataclass
 class PersistentData:
     servers: list[Server]
+    shop_offers: list[str]
 
 
 class Persistence(ABC):
@@ -163,7 +168,8 @@ class Persistence(ABC):
                                  server[1]["linked_team"]["cached_state"] else None
                         ) if "linked_team" in server[1] and server[1]["linked_team"] is not None else None
                     ) for server in per["servers"].items()
-                ]
+                ],
+                shop_offers=per.get("shop_offers", [])
             )
         return Persistence.__Instance
 
@@ -197,7 +203,10 @@ class Persistence(ABC):
                         {
                             "servers": {
 
-                            }
+                            },
+                            "shop_offers": [
+
+                            ]
                         },
                         persistence,
                         indent=Persistence.Indent
@@ -236,7 +245,8 @@ class Persistence(ABC):
                                     } if server.linked_team else None
                                 }
                                 for server in Persistence.__Instance.servers
-                            }
+                            },
+                            "shop_offers": Persistence.__Instance.shop_offers
                         },
                         persistence,
                         indent=Persistence.Indent
