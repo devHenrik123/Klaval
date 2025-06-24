@@ -45,20 +45,36 @@ def main() -> None:
     else:
         bot: Bot = Bot(intents=intents)
 
+    # noinspection PyBroadException
     @tasks.loop(hours=.5)
     async def scheduled_trigger() -> Any:
-        print("Start scheduled trigger.")
-        print("Sync users . . .")
-        await task_sync_users(bot)
-        print("Process team events . . .")
-        await task_notify_team_events(bot)
-        print("Persist team state . . .")
-        await task_persist_team_state()
-        print("Send shop updates . . .")
-        await task_notify_shop_update(bot)
-        print("Persist shop state . . .")
-        await task_persist_shop_state()
-        print("Scheduled trigger finished.")
+        try:
+            print("Start scheduled trigger.")
+
+            try:
+                print("Sync users . . .")
+                await task_sync_users(bot)
+                print("Process team events . . .")
+                await task_notify_team_events(bot)
+                print("Persist team state . . .")
+                await task_persist_team_state()
+            except Exception as ex:
+                pass  # keep it running...
+                print("Ecountered an error!")
+
+            try:
+                print("Send shop updates . . .")
+                await task_notify_shop_update(bot)
+                print("Persist shop state . . .")
+                await task_persist_shop_state()
+            except Exception as ex:
+                pass  # keep it running...
+                print("Ecountered an error!")
+
+        except Exception as ex:
+            pass  # I don't know what might have happend, but rather broad exception than crashing.
+        finally:
+            print("Scheduled trigger finished.")
 
     @bot.event
     async def on_ready() -> Any:
