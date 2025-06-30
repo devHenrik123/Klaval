@@ -54,13 +54,23 @@ def main() -> None:
             try:
                 print("Sync users . . .")
                 await task_sync_users(bot)
+            except Exception as ex:
+                pass  # keep it running...
+                print("Error during user synchronization: ", ex)
+
+            try:
                 print("Process team events . . .")
                 await task_notify_team_events(bot)
+            except Exception as ex:
+                pass  # keep it running...
+                print("Error during team event processing: ", ex)
+
+            try:
                 print("Persist team state . . .")
                 await task_persist_team_state()
             except Exception as ex:
                 pass  # keep it running...
-                print("Ecountered an error!")
+                print("Error during persistence update: ", ex)
 
             try:
                 print("Send shop updates . . .")
@@ -69,10 +79,11 @@ def main() -> None:
                 await task_persist_shop_state()
             except Exception as ex:
                 pass  # keep it running...
-                print("Ecountered an error!")
+                print("Ecountered an error during shop notify or persist: ", ex)
 
         except Exception as ex:
             pass  # I don't know what might have happend, but rather broad exception than crashing.
+            print("Scheduled trigger failed: ", ex)
         finally:
             print("Scheduled trigger finished.")
 
