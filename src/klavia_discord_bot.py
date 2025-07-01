@@ -75,11 +75,15 @@ def main() -> None:
             try:
                 print("Send shop updates . . .")
                 await task_notify_shop_update(bot)
+            except Exception as ex:
+                pass  # keep it running...
+                print("Ecountered an error during shop notify: ", ex)
+            try:
                 print("Persist shop state . . .")
                 await task_persist_shop_state()
             except Exception as ex:
                 pass  # keep it running...
-                print("Ecountered an error during shop notify or persist: ", ex)
+                print("Ecountered an error during shop persist: ", ex)
 
         except Exception as ex:
             pass  # I don't know what might have happend, but rather broad exception than crashing.
