@@ -30,17 +30,21 @@ async def task_notify_shop_update(bot: Bot) -> None:
         return
 
     for server in Persistence.get().servers:
-        if server.linked_team:
-            channel: GuildChannel | None = bot.get_channel(int(server.linked_team.events_channel))
-            if not channel:
-                continue  # No channel -> No notification -> can continue to next server
+        try:
+            if server.linked_team:
+                channel: GuildChannel | None = bot.get_channel(int(server.linked_team.events_channel))
+                if not channel:
+                    continue  # No channel -> No notification -> can continue to next server
 
-            for offer in shop.seasonal_offers:
-                if offer.name not in Persistence.get().shop_offers:
-                    await notify_new_offer(offer, "Season Shop", channel, server)
+                for offer in shop.seasonal_offers:
+                    if offer.name not in Persistence.get().shop_offers:
+                        await notify_new_offer(offer, "Season Shop", channel, server)
 
-            for offer in shop.alices_deals:
-                if offer.name not in Persistence.get().shop_offers:
-                    await notify_new_offer(offer, "Alices Deals", channel, server)
+                for offer in shop.alices_deals:
+                    if offer.name not in Persistence.get().shop_offers:
+                        await notify_new_offer(offer, "Alices Deals", channel, server)
 
-        await sleep(.5)  # Give bot some time to handle more important stuff.
+            await sleep(.5)  # Give bot some time to handle more important stuff.
+        except Exception as ex:
+            # Must catch everything to avoid crash!
+            print(f"Cannot notify server ({server.id}) for shop updates: {ex}")
