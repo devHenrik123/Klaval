@@ -118,6 +118,9 @@ class Crawler:
     def __init__(self, username: str, password: str) -> None:
         self._session: Session = Crawler._login(username, password)
 
+    def get_session(self) -> Session:
+        return self._session
+
     def get_skins(self) -> None:
         response: Response = self._session.get("https://klavia.io/garage/cars/1495/view-car-skins")
         soup: BeautifulSoup = BeautifulSoup(response.text, "html.parser")
@@ -125,13 +128,16 @@ class Crawler:
         return
 
     def get_shop(self) -> Shop:
+        shop_img_url_suffix: str = "/assets/shop-54d4e21a26f71965b2de774bfbf4a63b498bc3a2c53f06165c5aa152914cf06c.png"
+
         def get_section_offers(shop_section_url: str) -> list[ShopOffer]:
             response: Response = self._session.get(shop_section_url)
             soup: BeautifulSoup = BeautifulSoup(response.text, "html.parser")
-            offers_table = soup.find("div", attrs={"class": "row g-3"})
+            offers_table: Tag = soup.find("div", attrs={"class": "row g-3"})
             offers: list[ShopOffer] = []
             for offer_div in offers_table.find_all("div", attrs={"class": "col-lg-6"}):
-                img_url: str = offer_div.find("div", attrs={"class": "mb-3"}).find("img").get("src")
+                img: Tag | None = offer_div.find("div", attrs={"class": "mb-3"}).find("img")
+                img_url: str = img.get("src") if img else shop_img_url_suffix
                 offers.append(
                     ShopOffer(
                         name=offer_div.find("h4").get_text().strip("\n").split("\n")[0],
@@ -205,7 +211,7 @@ class Crawler:
     def get_quests(self, user_id: str) -> UserQuests:
         response: Response = self._session.get(Crawler.QuestsUrl.format(user_id=user_id))
         soup: BeautifulSoup = BeautifulSoup(response.text, "html.parser")
-        username: str = soup.find("h3").get_text(strip=True)
+        username: str = soup.select("#content > div.row.mb-3 > div.col-xl-6.d-flex > div > div > h3 > div.d-flex.align-items-top > div > div")[0].get_text(strip=True)
 
         quest_names: list[str] = [q.text for q in soup.find_all("a", attrs={"data-turbo-frame": "modal"}) if len]
         try:
@@ -234,15 +240,29 @@ class Crawler:
     def get_stats(self, user_id: str) -> UserStats:
         response: Response = self._session.get(Crawler.RacerUrl.format(user_id=user_id))
         soup: BeautifulSoup = BeautifulSoup(response.text, "html.parser")
-        username: str = soup.find("h3").get_text(strip=True)
+        username: str = soup.select("#content > div.row.mb-3 > div.col-xl-6.d-flex > div > div > h3 > div.d-flex.align-items-top > div > div")[0].get_text(strip=True)
 
         try:
-            main_stats: list[Tag] = soup.find_all("strong")
-            lifetime_races: int = int(main_stats[0].get_text(strip=True).split(" ")[0].replace(",", ""))
-            top_wpm: float = float(main_stats[1].get_text(strip=True).split(" ")[0])
-            perfect_acc: int = int(main_stats[2].get_text(strip=True))
+            lifetime_races: int = int(
+                soup
+                .select("#content > div.row.mt-3 > div:nth-child(1) > div > div > table > tbody > tr:nth-child(1) > td:nth-child(2) > strong")[0]
+                .get_text(strip=True)
+                .split(" ")[0]
+                .replace(",", "")
+            )
+            top_wpm: float = float(
+                soup
+                .select("#content > div.row.mt-3 > div:nth-child(2) > div > div > table > tbody > tr:nth-child(1) > td:nth-child(2) > strong")[0]
+                .get_text(strip=True)
+                .split(" ")[0]
+            )
+            perfect_acc: int = int(
+                soup
+                .select("#content > div.row.mt-3 > div:nth-child(3) > div > div > table > tbody > tr:nth-child(1) > td:nth-child(2) > strong")[0]
+                .get_text(strip=True)
+            )
 
-            def get_minor_stat(s: BeautifulSoup, label: str) -> str:
+            def get_minor_stat(label: str) -> str:
                 for td in soup.find_all("td"):
                     if td.get_text(strip=True).startswith(label):
                         value_td = td.find_next_sibling("td")
@@ -250,9 +270,9 @@ class Crawler:
                             return value_td.get_text(strip=True)
                 return "-1"
 
-            longest_session: int = int(get_minor_stat(soup, "Longest Session").split()[0].replace(",", ""))
-            current_wpm: float = float(get_minor_stat(soup, "Current Speed").split()[0])
-            current_acc: float = float(get_minor_stat(soup, "Current Accuracy").strip("%"))
+            longest_session: int = int(get_minor_stat("Longest Session").split()[0].replace(",", ""))
+            current_wpm: float = float(get_minor_stat("Current Speed").split()[0])
+            current_acc: float = float(get_minor_stat("Current Accuracy").strip("%"))
 
             return UserStats(
                 user_id=user_id,
@@ -284,7 +304,7 @@ class Crawler:
     def get_garage(self, user_id: str) -> Garage:
         response: Response = self._session.get(Crawler.GarageUrl.format(user_id=user_id))
         soup: BeautifulSoup = BeautifulSoup(response.text, "html.parser")
-        username: str = soup.find("h3").get_text(strip=True)
+        username: str = soup.select("#content > div.row.mb-3 > div.col-xl-6.d-flex > div > div > h3 > div.d-flex.align-items-top > div > div")[0].get_text(strip=True)
         available_cars: dict[str, Car] = self.get_cars_dict()
         cars: list[Car] = []
         for car_tag in soup.find_all("a", attrs={"data-turbo-frame": "selected_car"}):
@@ -359,15 +379,19 @@ class Crawler:
     def _login(username: str, password: str) -> Session:
         session: Session = Session()
 
-        login_page: Response = session.get(Crawler.KlaviaUrl)
+        login_page: Response = session.get(Crawler.SignInUrl)
         login_soup: BeautifulSoup = BeautifulSoup(login_page.text, "html.parser")
         csrf_token: str = login_soup.find("meta", {"name": "csrf-token"})["content"]
+        auth_token: str = login_soup.find("input", {"name": "authenticity_token"}).get("value")
 
         login_response: Response = session.post(
             url=Crawler.SignInUrl,
+            headers={
+                "x-csrf-token": csrf_token
+            },
             data={
-                "authenticity_token": csrf_token,
-                "racer[email]": username,
+                "authenticity_token": auth_token,
+                "racer[login]": username,
                 "racer[password]": password,
                 "racer[remember_me]": "0",
                 "commit": "Sign+In"
