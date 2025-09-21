@@ -11,6 +11,7 @@ from dscrd_bot.background_tasks.task_notify_team_events import task_notify_team_
 from dscrd_bot.background_tasks.task_persist_shop_state import task_persist_shop_state
 from dscrd_bot.background_tasks.task_persist_team_state import task_persist_team_state
 from dscrd_bot.background_tasks.task_sync_users import task_sync_users
+from dscrd_bot.commands.compare import command_compare
 from dscrd_bot.commands.find_racer import command_find_racer
 from dscrd_bot.commands.force_unverify import command_force_unverify
 from dscrd_bot.commands.force_verify import command_force_verify
@@ -206,6 +207,10 @@ def main() -> None:
     @bot.slash_command(description="Finds all matching Klavia accounts.")
     async def find_racer(ctx: Context, klavia_name: str) -> Any:
         await command_find_racer(ctx, klavia_name)
+
+    @bot.slash_command(description="Compare two Klavia accounts.")
+    async def compare(ctx: Context, klavia_name: str, klavia_name_two: str = ""):
+        await command_compare(ctx, klavia_name, klavia_name_two)
 
     bot.run(EnvVars["discord_bot_token"])
 
