@@ -213,9 +213,10 @@ class Crawler:
         soup: BeautifulSoup = BeautifulSoup(response.text, "html.parser")
         username: str = soup.select("#content > div.row.mb-3 > div.col-xl-6.d-flex > div > div > h3 > div.d-flex.align-items-top > div > div")[0].get_text(strip=True)
 
-        quest_names: list[str] = [q.text for q in soup.find_all("a", attrs={"data-turbo-frame": "modal"}) if len]
+        quest_names: list[str] = [q.text for q in soup.find_all("a", attrs={"data-turbo-frame": "modal-body-frame"}) if len]
         try:
-            quest_names[0] = soup.find("h5").get_text(strip=True)
+            active_quest_name: str = soup.find("h5").get_text(strip=True)
+            quest_names.insert(0, active_quest_name)
         except AttributeError:
             pass  # No active quest! -> ignore
         quest_progs: list[int] = [
