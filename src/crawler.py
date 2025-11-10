@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from difflib import SequenceMatcher
-from typing import Final
+from typing import Final, cast
 
 from bs4 import BeautifulSoup, ResultSet
 from bs4.element import Tag
@@ -103,11 +103,13 @@ class Crawler:
     SignInUrl: Final[str] = KlaviaUrl + "/racers/sign_in"
     RacerUrl: Final[str] = KlaviaUrl + "/racers/{user_id}"
     GarageUrl: Final[str] = RacerUrl + "/garage"
+    GarageCarsUrl: Final[str] = RacerUrl + "/cars"
+    CarInstanceUrl: Final[str] = KlaviaUrl + "/cars/{car_id}"
     StatsUrl: Final[str] = RacerUrl + "/stats"
     QuestsUrl: Final[str] = RacerUrl + "/quests"
     LeaderboardsUrl: Final[str] = KlaviaUrl + "/leaderboards"
     TextsUrl: Final[str] = LeaderboardsUrl + "/texts"
-    CarsUrl: Final[str] = LeaderboardsUrl + "/cars"
+    LeaderboardsCarsUrl: Final[str] = LeaderboardsUrl + "/cars"
     SearchRacerUrl: Final[str] = RacerUrl.format(user_id="autocomplete_with_garage") + "?query={search}"
     TeamsUrl: Final[str] = KlaviaUrl + "/teams/{team_tag}"
     ShopsUrl: Final[str] = KlaviaUrl + "/shops"
@@ -302,47 +304,40 @@ class Crawler:
                 )
             )
 
-    def get_garage(self, user_id: str) -> Garage:
-        response: Response = self._session.get(Crawler.GarageUrl.format(user_id=user_id))
+    def get_car(self, car_id: str) -> Car:
+        response: Response = self._session.get(Crawler.CarInstanceUrl.format(car_id=car_id))
         soup: BeautifulSoup = BeautifulSoup(response.text, "html.parser")
-        username: str = soup.select("#content > div.row.mb-3 > div.col-xl-6.d-flex > div > div > h3 > div.d-flex.align-items-top > div > div")[0].get_text(strip=True)
-        available_cars: dict[str, Car] = self.get_cars_dict()
-        cars: list[Car] = []
-        for car_tag in soup.find_all("a", attrs={"data-turbo-frame": "selected_car"}):
-            name: str = car_tag.get("title").split("|")[0].strip()
-            car: Car | None = available_cars.get(name, None)
-            if car:
-                cars.append(car)
-            else:
-                # Cannot find car -> Ignore for now
-                # Might do some error logging in the future...
-                pass
-        selected_car: Car = available_cars.get(
-            soup
-            .find("div", id="selected_car")
-            .find("div", class_="card-header")
-            .find(text=True, recursive=False)
-            .strip(),
-            list(available_cars.values())[0]
+
+        name: str = soup.select("#car-info > table > tbody > tr:nth-child(5) > td:nth-child(2)")[0].text
+        image_url: str = Crawler.KlaviaUrl + soup.select("#modal-body-frame > div > div:nth-child(1) > div > canvas")[0].get("data-show-vehicle-spritesheet-url-value")
+
+        return Car(
+            name=name,
+            image_url=image_url
         )
 
-        try:
-            selected_stats_table: Tag = soup.find("tbody")
-            selected_stats_elems: ResultSet[Tag] = selected_stats_table.find_all("td", attrs={"class": "text-end"})
+    def get_car_stats(self, car_id: str) -> CarStats:
+        response: Response = self._session.get(Crawler.CarInstanceUrl.format(car_id=car_id))
+        soup: BeautifulSoup = BeautifulSoup(response.text, "html.parser")
 
+        car_stats: CarStats
+        try:
+            stats_table = soup.select("#car-stats > table > tbody")[0]
+            stats_data: ResultSet[Tag] = stats_table.find_all("td", attrs={"class": "text-end"})
             # noinspection PyCallingNonCallable
-            selected_stats: CarStats = CarStats(
-                races=int(selected_stats_elems[0].getText(strip=True)),
-                dqs=int(selected_stats_elems[1].getText(strip=True)),
-                avg_wpm=float(selected_stats_elems[2].getText(strip=True)),
-                avg_acc=float(selected_stats_elems[3].getText(strip=True)[:-1]),
-                top_wpm=float(selected_stats_elems[4].getText(strip=True)),
-                top_acc=float(selected_stats_elems[5].getText(strip=True)[:-1]),
-                perf_acc=int(selected_stats_elems[6].getText(strip=True))
+            car_stats = CarStats(
+                races=int(stats_data[0].getText(strip=True)),
+                dqs=int(stats_data[1].getText(strip=True)),
+                avg_wpm=float(stats_data[2].getText(strip=True)),
+                avg_acc=float(stats_data[3].getText(strip=True)[:-1]),
+                top_wpm=float(stats_data[4].getText(strip=True)),
+                top_acc=float(stats_data[5].getText(strip=True)[:-1]),
+                perf_acc=int(stats_data[6].getText(strip=True))
             )
-        except AttributeError:
-            # User might have no stats, yet.
-            selected_stats: CarStats = CarStats(
+            pass
+        except IndexError:
+            # There are no stats available for this car. Maybe the owner never raced with it. Set default values:
+            car_stats = CarStats(
                 races=0,
                 dqs=0,
                 avg_wpm=0,
@@ -352,16 +347,37 @@ class Crawler:
                 perf_acc=0
             )
 
+        return car_stats
+
+    def get_garage(self, user_id: str) -> Garage:
+        response: Response = self._session.get(Crawler.GarageCarsUrl.format(user_id=user_id))
+        soup: BeautifulSoup = BeautifulSoup(response.text, "html.parser")
+        username: str = soup.select("#content > div.row.mb-3 > div.col-xl-6.d-flex > div > div > h3 > div.d-flex.align-items-top > div > div")[0].get_text(strip=True)
+
+        car_tags: ResultSet[Tag] = soup.find("tbody").find_all("tr")
+        cars: list[Car] = [
+            Car(
+                name=row.find_all("td")[1].text,
+                image_url=row.find("img").get("src")
+            )
+            for row in car_tags
+        ]
+
+        selected_car_id: str = soup.select("#equipped-car-frame > canvas")[0].get("data-show-vehicle-click-url-value").split("/")[-1]
+        selected_car: Car = self.get_car(selected_car_id)
+        cars.append(selected_car)
+        selected_car_stats: CarStats = self.get_car_stats(selected_car_id)
+
         return Garage(
             user_id=user_id,
             display_name=username,
             cars=cars,
             selected_car=selected_car,
-            selected_stats=selected_stats
+            selected_stats=selected_car_stats
         )
 
     def get_cars_dict(self) -> dict[str, Car]:
-        response: Response = self._session.get(Crawler.CarsUrl)
+        response: Response = self._session.get(Crawler.LeaderboardsCarsUrl)
         soup: BeautifulSoup = BeautifulSoup(response.text, "html.parser")
         cars: dict[str, Car] = {}
         for car_tr in soup.find_all("tr")[1:]:
