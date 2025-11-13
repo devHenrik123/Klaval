@@ -43,6 +43,12 @@ def test_get_team(crawler: Crawler) -> None:
     assert isinstance(team.members, list) and len(team.members) > 0
 
 
+def test_get_team_no_duplicate_members(crawler: Crawler) -> None:
+    tag: str = "vyn"
+    team: Team = crawler.get_team(tag)
+    assert all([len([x for x in team.members if x.id == m.id]) == 1 for m in team.members])
+
+
 def test_search_racers(crawler: Crawler) -> None:
     racers: list[UserIdentity] = crawler.search_racers("Nusakan")
     contains_racer: Callable[[None], bool] = lambda username: any(r for r in racers if r.username == username)

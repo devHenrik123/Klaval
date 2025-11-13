@@ -170,7 +170,7 @@ class Crawler:
             racer: Tag; squad: Tag; joined: Tag; last_race: Tag; team_races: Tag  # noqa  Ugly, but type hints. :(
             racer, squad, joined, last_race, team_races = tr.find_all("td")[:5]
             # racer:
-            racer_id: str = racer.find("a")["href"].split("/")[-1]
+            racer_id: str = racer.find("a")["href"].split("/")[-2]
             badge: Tag | None = racer.find("div", attrs={"class": "badge"})
             identity: UserIdentity = self.search_racer(racer_id)
             members.append(identity)
