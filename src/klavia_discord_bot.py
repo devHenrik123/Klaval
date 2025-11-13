@@ -6,6 +6,7 @@ from discord.ext import commands, tasks
 from discord.ext.commands import Context, CommandError
 from discord.utils import get
 
+from dscrd_bot.background_tasks.task_clean_persistence import task_clean_persistence
 from dscrd_bot.background_tasks.task_notify_shop_update import task_notify_shop_update
 from dscrd_bot.background_tasks.task_notify_team_events import task_notify_team_events
 from dscrd_bot.background_tasks.task_persist_shop_state import task_persist_shop_state
@@ -51,6 +52,13 @@ def main() -> None:
     async def scheduled_trigger() -> Any:
         try:
             print("Start scheduled trigger.")
+
+            try:
+                print("Clean persistence . . .")
+                await task_clean_persistence(bot)
+            except Exception as ex:
+                pass  # keep it running...
+                print("Error during cleaning process: ", ex)
 
             try:
                 print("Sync users . . .")
