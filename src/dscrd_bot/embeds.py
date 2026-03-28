@@ -14,16 +14,17 @@ class ErrorType(StrEnum):
 
 Quotes: Final[list[str]] = [
     "Thanks to Nusakan!",
-    "Klaval was made by Henrik.",
+    "Klaval bot was made by Henrik.",
     "Don't forget to race today!",
     "🏎️ Faster is better!",
     "⌨️ Mechanical keyboards. ⌨️",
-    "Season 2 is here!",
     "The Boring Car looks most interesting.",
     "What's Rabbit-A-Grow supposed to be?",
     "The Smallmouth Bass is a car.",
     "Anyone's allowed to edit my source code.",
-    "Accuracy > Speed"
+    "Accuracy > Speed",
+    "Searching for maintainers.",
+    "Get the MPEK extension for Klavia."
 ]
 
 
