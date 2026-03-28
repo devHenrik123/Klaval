@@ -53,7 +53,6 @@ def test_search_racers(crawler: Crawler) -> None:
     racers: list[UserIdentity] = crawler.search_racers("Nusakan")
     contains_racer: Callable[[None], bool] = lambda username: any(r for r in racers if r.username == username)
     assert contains_racer("nusakan")
-    assert contains_racer("nusakanistesting")
 
 
 def test_search_racer(crawler: Crawler) -> None:

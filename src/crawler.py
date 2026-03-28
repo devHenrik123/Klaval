@@ -170,16 +170,19 @@ class Crawler:
             racer: Tag; squad: Tag; joined: Tag; last_race: Tag; team_races: Tag  # noqa  Ugly, but type hints. :(
             racer, squad, joined, last_race, team_races = tr.find_all("td")[:5]
             # racer:
-            racer_id: str = racer.find("a")["href"].split("/")[-2]
+            racer_id: str = racer.find_all("a")[1]["href"].split("/")[-2]
             badge: Tag | None = racer.find("div", attrs={"class": "badge"})
             identity: UserIdentity = self.search_racer(racer_id)
-            members.append(identity)
-            if badge:
-                title = badge["title"]
-                if title == "Leader":
-                    leader = identity
-                elif title == "Agent":
-                    agents.append(identity)
+            if identity:
+                # Banned users result in an internal server error and don't have a valid identity:
+                # https://klavia.io/racers/56230/garage (crooly - banned account)
+                members.append(identity)
+                if badge:
+                    title = badge["title"]
+                    if title == "Leader":
+                        leader = identity
+                    elif title == "Agent":
+                        agents.append(identity)
 
         # noinspection PyUnboundLocalVariable
         return Team(
@@ -213,16 +216,11 @@ class Crawler:
     def get_quests(self, user_id: str) -> UserQuests:
         response: Response = self._session.get(Crawler.QuestsUrl.format(user_id=user_id))
         soup: BeautifulSoup = BeautifulSoup(response.text, "html.parser")
-        username: str = soup.select("#content > div.row.mb-3 > div.col-xl-6.d-flex > div > div > h3 > div.d-flex.align-items-top > div > div")[0].get_text(strip=True)
+        display_name: str = soup.select("#content > div.row.mb-3 > div.col-xl-6.d-flex > div > div > h3 > div.d-flex > div > div > span")[0].get_text(strip=True)
 
-        quest_names: list[str] = [q.text for q in soup.find_all("a", attrs={"data-turbo-frame": "modal-body-frame"}) if len]
-        try:
-            active_quest_name: str = soup.find("h5").get_text(strip=True)
-            quest_names.insert(0, active_quest_name)
-        except AttributeError:
-            pass  # No active quest! -> ignore
+        quest_names: list[str] = [q.get_text(strip=True) for q in soup.find_all("h5", attrs={"class": "mb-3 color-title"}) if len]
         quest_progs: list[int] = [
-            int(p.get("data-progress-percentage-value"))
+            round(float(p.get("data-progress-percentage-value")))
             for p in soup.find_all("div", attrs={"data-controller": "progress"})
         ]
         quest_progress: list[UserQuestProgress] = [
@@ -236,32 +234,32 @@ class Crawler:
 
         return UserQuests(
             user_id=user_id,
-            display_name=username,
+            display_name=display_name,
             quest_progress=quest_progress
         )
 
     def get_stats(self, user_id: str) -> UserStats:
-        response: Response = self._session.get(Crawler.RacerUrl.format(user_id=user_id))
+        response: Response = self._session.get(Crawler.StatsUrl.format(user_id=user_id))
         soup: BeautifulSoup = BeautifulSoup(response.text, "html.parser")
-        username: str = soup.select("#content > div.row.mb-3 > div.col-xl-6.d-flex > div > div > h3 > div.d-flex.align-items-top > div > div")[0].get_text(strip=True)
+        username: str = soup.select("#content > div:nth-child(2) > div.col-xl-6.d-flex > div > div > h3 > div.d-flex > div > div > span")[0].get_text(strip=True)
 
         try:
             lifetime_races: int = int(
                 soup
-                .select("#content > div.row.mt-3 > div:nth-child(1) > div > div > table > tbody > tr:nth-child(1) > td:nth-child(2) > strong")[0]
+                .select("#content > div.row.mt-3.mb-3 > div:nth-child(2) > div > div > table > tbody > tr:nth-child(1) > td:nth-child(2)")[0]
                 .get_text(strip=True)
                 .split(" ")[0]
                 .replace(",", "")
             )
             top_wpm: float = float(
                 soup
-                .select("#content > div.row.mt-3 > div:nth-child(2) > div > div > table > tbody > tr:nth-child(1) > td:nth-child(2) > strong")[0]
+                .select("#content > div.row.mt-3.mb-3 > div:nth-child(3) > div > div > table > tbody > tr:nth-child(2) > td:nth-child(2) > span")[0]
                 .get_text(strip=True)
                 .split(" ")[0]
             )
             perfect_acc: int = int(
                 soup
-                .select("#content > div.row.mt-3 > div:nth-child(3) > div > div > table > tbody > tr:nth-child(1) > td:nth-child(2) > strong")[0]
+                .select("#content > div.row.mt-3.mb-3 > div:nth-child(4) > div > div > table > tbody > tr:nth-child(2) > td:nth-child(2)")[0]
                 .get_text(strip=True)
             )
 
@@ -308,8 +306,8 @@ class Crawler:
         response: Response = self._session.get(Crawler.CarInstanceUrl.format(car_id=car_id))
         soup: BeautifulSoup = BeautifulSoup(response.text, "html.parser")
 
-        name: str = soup.select("#car-info > table > tbody > tr:nth-child(5) > td:nth-child(2)")[0].text
-        image_url: str = Crawler.KlaviaUrl + soup.select("#modal-body-frame > div > div:nth-child(1) > div > canvas")[0].get("data-show-vehicle-spritesheet-url-value")
+        name: str = soup.select("#car-info > table > tbody > tr:nth-child(5) > td:nth-child(2)")[0].get_text(strip=True)
+        image_url: str = soup.select("#left-panel > div > div > canvas:nth-child(1)")[0]["data-show-vehicle-single-image-url-value"]
 
         return Car(
             name=name,
@@ -352,7 +350,7 @@ class Crawler:
     def get_garage(self, user_id: str) -> Garage:
         response: Response = self._session.get(Crawler.GarageCarsUrl.format(user_id=user_id))
         soup: BeautifulSoup = BeautifulSoup(response.text, "html.parser")
-        username: str = soup.select("#content > div.row.mb-3 > div.col-xl-6.d-flex > div > div > h3 > div.d-flex.align-items-top > div > div")[0].get_text(strip=True)
+        username: str = soup.select("#content > div.row.mb-3 > div.col-xl-6.d-flex > div > div > h3 > div.d-flex > div > div > span")[0].get_text(strip=True)
 
         car_tags: ResultSet[Tag] = soup.find("tbody").find_all("tr")
         cars: list[Car] = [
@@ -363,7 +361,7 @@ class Crawler:
             for row in car_tags
         ]
 
-        selected_car_id: str = soup.select("#equipped-car-frame > canvas")[0].get("data-show-vehicle-click-url-value").split("/")[-1]
+        selected_car_id: str = soup.select("#equipped-car-frame > div > canvas:nth-child(1)")[0]["data-show-vehicle-car-id-value"]
         selected_car: Car = self.get_car(selected_car_id)
         cars.append(selected_car)
         selected_car_stats: CarStats = self.get_car_stats(selected_car_id)
