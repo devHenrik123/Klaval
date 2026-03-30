@@ -10,29 +10,23 @@ Available commands, example images and short documentation can be found below.
 
 ## Commands:  
 The following commands are currently supported:  
-| Command            | Parameters            | Description |
-|--------------------|-----------------------| ------------|
-| /setup             |                       | Should be used immediately after adding Klaval to a server. Runs setup tasks, creates roles, sets the welcome channel, message author and icon. Most importantly it allows you to link a team to your server and configure event updates on Discord. If the welcome channel is not defined, new members will not be greeted by Klaval. If the message author is not defined, the author and icon will both not show. If no Klavia team has been linked, you will not receive any team updates. |
-| /find_racer        | <klavia_name>         | Searches for Klavia account and returns id, display name and username. |
-| /verify            | <klavia_name>         | Verifies account, links it to the Klavia account and updates their server profile. |
-| /force_verify      | <member> <klavia_id>  | Can be used by admins to verify other users or themselves immediately. Klavia IDs can be found using /find_racer. |
-| /unverify          |                       | Unverifies the user who's using the command. |
-| /force_unverify    | <member>              | Can be used by admins to unverify other users or themselves immediately. |
-| /sync              |                       | Synchronizes the server profile and Klavia account. Updates server profile. |
-| /garage            | [klavia_name]         | Displays some information about the users garage. |
-| /stats             | [klavia_name]         | Displays some statistics of the given user. |
-| /quests            | [klavia_name]         | Displays the users current quests. |
+| Command            | Parameters                              | Description |
+|--------------------|-----------------------------------------| ------------|
+| /setup             |                                         | Should be used immediately after adding Klaval to a server. Runs setup tasks, creates roles, sets the welcome channel, message author and icon. Most importantly it allows you to link a team to your server and configure event updates on Discord. If the welcome channel is not defined, new members will not be greeted by Klaval. If the message author is not defined, the author and icon will both not show. If no Klavia team has been linked, you will not receive any team updates. |
+| /find_racer        | <klavia_name>                           | Searches for Klavia account and returns id, display name and username. |
+| /verify            | <klavia_name>                           | Verifies account, links it to the Klavia account and updates their server profile. |
+| /force_verify      | <member> <klavia_id>                    | Can be used by admins to verify other users or themselves immediately. Klavia IDs can be found using /find_racer. |
+| /unverify          |                                         | Unverifies the user who's using the command. |
+| /force_unverify    | <member>                                | Can be used by admins to unverify other users or themselves immediately. |
+| /sync              |                                         | Synchronizes the server profile and Klavia account. Updates server profile. |
+| /garage            | [klavia_name]                           | Displays some information about the users garage. |
+| /stats             | [klavia_name]                           | Displays some statistics of the given user. |
+| /quests            | [klavia_name]                           | Displays the users current quests. |
+| /compare           | <klavia_name_1> [klavia_name_2]         | If one name is given, the linked Klavia account of the user is compared to the account corresponding to klavia_name_1. If two names are given, the two corresponding accounts are compared. |
 
 <> = Required Parameter  
 [ ] = Optional Parameter  
 
-## Currently working on:
-### Better performance
-- improving crawler performance by using async
-### Bugs & more commands  
-- /shop
-- /leaderboards
-- /team
 
 ## Development Environment
 1. Python 3.12  
@@ -59,6 +53,7 @@ The following commands are currently supported:
    - Klaval: Verified
 
 ## Examples:
-![verification](readme/verification.png)
 ![garage](readme/garage.png)
-![quests](readme/quests.png)
+![quests](readme/quests_command_new.png)
+![compare](readme/compare_command.png)
+![verification](readme/verification.png)
