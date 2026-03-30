@@ -53,6 +53,7 @@ The following commands are currently supported:
    - Klaval: Verified
 
 ## Examples:
-![verification](readme/verification.png)
 ![garage](readme/garage.png)
-![quests](readme/quests.png)
+![quests](readme/quests_command_new.png)
+![compare](readme/compare_command.png)
+![verification](readme/verification.png)
